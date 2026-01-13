@@ -287,7 +287,10 @@
         min-height: var(--viewport-height);
         overflow: hidden;
         position: relative;
-        z-index: 2
+        z-index: 2;
+
+        transform: scale(.7);
+        margin-top: -8%;
     }
 
     html {
@@ -324,6 +327,10 @@
         background-size: cover;
         right: auto;
         width: 100vw
+    }
+
+    .bg-video {
+        min-width: 100%;
     }
 
     .--site-bg::before {
