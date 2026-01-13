@@ -311,7 +311,7 @@
         top: 0px;
         transition: opacity 1s ease-in-out, visibility 1s;
         visibility: hidden;
-        width: 100%
+        width: 100%;
     }
 
     .--site-bg {
