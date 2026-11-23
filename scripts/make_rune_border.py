@@ -110,20 +110,39 @@ def mark_filter(mode):
     return head + body + "</filter>"
 
 
+PSD_LAYERS = {  # element id in bind-rune.svg -> PSD layer name (bottom to top)
+    "rune-t": "T - Tiwaz",
+    "rune-a": "A - Ansuz",
+    "rune-n": "N - Naudiz",
+}
+
+
 def export_psd():
-    """art/bind-rune.psd from art/bind-rune.svg (transparent, 4x), as a starting point."""
+    """art/bind-rune.psd from art/bind-rune.svg (transparent, 4x): one layer per rune
+    (PSD_LAYERS), stacked so together they make the bind rune. Elements with other ids
+    (or none) are left out, and so is the guide."""
     import re
     import subprocess
     import tempfile
     out = ART / "bind-rune.psd"
     text = (ART / "bind-rune.svg").read_text(encoding="utf-8")
-    text = re.sub(r'<[^<>]*\bid="guide"[^<>]*/>', "", text)       # the guide isn't part of the shape
-    with tempfile.NamedTemporaryFile("w", suffix=".svg", delete=False, encoding="utf-8") as f:
-        f.write(text)
-    subprocess.run(["magick", "-background", "none", "-density", "288", f.name,
-                    "-depth", "8", str(out)], check=True)
-    Path(f.name).unlink()
-    print("Wrote", out, "(set BIND_RUNE_FILE to it to use your edits)")
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+    text = re.sub(r'<[^<>]*\bid="guide"[^<>]*/>', "", text)
+    layers = []
+    with tempfile.TemporaryDirectory() as tmp:
+        for rune_id, name in PSD_LAYERS.items():
+            # keep only this rune's element
+            only = re.sub(r'<path\b(?![^>]*\bid="' + rune_id + r'")[^>]*/>', "", text)
+            svg_file, png_file = Path(tmp, f"{rune_id}.svg"), Path(tmp, f"{rune_id}.png")
+            svg_file.write_text(only, encoding="utf-8")
+            subprocess.run(["magick", "-background", "none", "-density", "288", str(svg_file),
+                            "-depth", "8", str(png_file)], check=True)
+            layers.append((png_file, name))
+        # A PSD from ImageMagick: the first image is the merged view, the rest are the layers.
+        merged = ["("] + [str(p) for p, _ in layers] + ["-background", "none", "-flatten", ")"]
+        named = sum((["(", str(p), "-set", "label", n, ")"] for p, n in layers), [])
+        subprocess.run(["magick", *merged, *named, "-depth", "8", str(out)], check=True)
+    print("Wrote", out, f"({len(layers)} layers; set BIND_RUNE_FILE to it to use your edits)")
 
 
 # Colours per mode: the web SVG, or white-on-black masks for Blender.

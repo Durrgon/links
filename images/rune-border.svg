@@ -26,8 +26,14 @@
       <g transform="rotate(0,13.0,13.0)"><g filter="url(#mark)"><svg x="7.2" y="2.85" width="11.6" height="20.3" viewBox="-10 -10 80 140" preserveAspectRatio="none" overflow="visible">
   
   
-  <path id="bind-rune" d="M30,0V120 M0,30L30,0L60,30 M30,30L60,60 M10,75L50,105"
-        fill="none" stroke="#c9c9c9" stroke-width="16.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="none" stroke-width="16.5" stroke-linecap="round" stroke-linejoin="round">
+    
+    <path id="rune-t" stroke="#c9c9c9" d="M30,0V120 M0,30L30,0L60,30"/>
+    
+    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,30L60,60"/>
+    
+    <path id="rune-n" stroke="#c9c9c9" d="M30,0V120 M10,75L50,105"/>
+  </g>
 </svg></g></g>
     </g></g>
   <g transform="translate(26,0)"><g>
@@ -61,8 +67,14 @@
       <g transform="rotate(-90,13.0,13.0)"><g filter="url(#mark)"><svg x="7.2" y="2.85" width="11.6" height="20.3" viewBox="-10 -10 80 140" preserveAspectRatio="none" overflow="visible">
   
   
-  <path id="bind-rune" d="M30,0V120 M0,30L30,0L60,30 M30,30L60,60 M10,75L50,105"
-        fill="none" stroke="#c9c9c9" stroke-width="16.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="none" stroke-width="16.5" stroke-linecap="round" stroke-linejoin="round">
+    
+    <path id="rune-t" stroke="#c9c9c9" d="M30,0V120 M0,30L30,0L60,30"/>
+    
+    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,30L60,60"/>
+    
+    <path id="rune-n" stroke="#c9c9c9" d="M30,0V120 M10,75L50,105"/>
+  </g>
 </svg></g></g>
     </g></g>
   <g transform="translate(236,26) rotate(90)"><g>
@@ -96,8 +108,14 @@
       <g transform="rotate(-180,13.0,13.0)"><g filter="url(#mark)"><svg x="7.2" y="2.85" width="11.6" height="20.3" viewBox="-10 -10 80 140" preserveAspectRatio="none" overflow="visible">
   
   
-  <path id="bind-rune" d="M30,0V120 M0,30L30,0L60,30 M30,30L60,60 M10,75L50,105"
-        fill="none" stroke="#c9c9c9" stroke-width="16.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="none" stroke-width="16.5" stroke-linecap="round" stroke-linejoin="round">
+    
+    <path id="rune-t" stroke="#c9c9c9" d="M30,0V120 M0,30L30,0L60,30"/>
+    
+    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,30L60,60"/>
+    
+    <path id="rune-n" stroke="#c9c9c9" d="M30,0V120 M10,75L50,105"/>
+  </g>
 </svg></g></g>
     </g></g>
   <g transform="translate(210,236) rotate(180)"><g>
@@ -131,8 +149,14 @@
       <g transform="rotate(-270,13.0,13.0)"><g filter="url(#mark)"><svg x="7.2" y="2.85" width="11.6" height="20.3" viewBox="-10 -10 80 140" preserveAspectRatio="none" overflow="visible">
   
   
-  <path id="bind-rune" d="M30,0V120 M0,30L30,0L60,30 M30,30L60,60 M10,75L50,105"
-        fill="none" stroke="#c9c9c9" stroke-width="16.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="none" stroke-width="16.5" stroke-linecap="round" stroke-linejoin="round">
+    
+    <path id="rune-t" stroke="#c9c9c9" d="M30,0V120 M0,30L30,0L60,30"/>
+    
+    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,30L60,60"/>
+    
+    <path id="rune-n" stroke="#c9c9c9" d="M30,0V120 M10,75L50,105"/>
+  </g>
 </svg></g></g>
     </g></g>
   <g transform="translate(0,210) rotate(270)"><g>

@@ -3,9 +3,15 @@
        Edit freely: only the SHAPE is used (everything that isn't transparent), so
        colours don't matter; stroke width, extra paths and filled shapes all work.
        The rune box is 0,0 to 60,120 (dashed guide); the viewBox leaves a margin.
-       ᛏ arrow on top, ᚨ shares its right arm and adds a branch below, ᚾ crosses lower. -->
+       One layer per rune, each with the shared stave; together they make the bind rune. -->
   <rect x="0" y="0" width="60" height="120" fill="none" stroke="#7aa7ff" stroke-width="0.5"
         stroke-dasharray="3 3" opacity="0.6" id="guide"/>
-  <path id="bind-rune" d="M30,0V120 M0,30L30,0L60,30 M30,30L60,60 M10,75L50,105"
-        fill="none" stroke="#c9c9c9" stroke-width="16.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="none" stroke-width="16.5" stroke-linecap="round" stroke-linejoin="round">
+    <!-- ᛏ (t): stave with the arrow on top -->
+    <path id="rune-t" stroke="#c9c9c9" d="M30,0V120 M0,30L30,0L60,30"/>
+    <!-- ᚨ (a): stave with two branches down to the right (the top one is ᛏ's right arm) -->
+    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,30L60,60"/>
+    <!-- ᚾ (n): stave with the cross-stroke lower down -->
+    <path id="rune-n" stroke="#c9c9c9" d="M30,0V120 M10,75L50,105"/>
+  </g>
 </svg>
