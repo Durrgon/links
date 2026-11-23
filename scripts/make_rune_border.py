@@ -20,9 +20,9 @@ from make_avatar_frame import RUNES  # same rune shapes as the avatar ring
 OUT = Path(__file__).resolve().parent.parent / "images" / "rune-border.svg"
 
 BAND = 26                  # band width = border-image slice
-PITCH = 10                 # spacing between runes along the band
+PITCH = 11.5               # spacing between runes along the band
 TEXT = "ᚾᚨᛏᛏᚠᛟᛞᛞ:ᛞᚱᚨᚲᛟᚾ:"  # one tile = one pass
-TILE = PITCH * len(TEXT)   # tile length
+TILE = round(PITCH * len(TEXT))   # tile length
 S = 2 * BAND + TILE        # whole image
 
 STONE = "#a7adb4"
@@ -31,6 +31,9 @@ GOLD = "#d2a54a"           # rune fill
 GOLD_EDGE = "#5a4317"      # dark rim under the gold, so it reads as inlaid
 LINE = 1.6
 EDGE = 1.4                 # how far the carved edge lines sit inside the band
+RUNE_LINE = 2.4            # rune stroke width in the masks
+RUNE_OUTLINE = 4.6         # carved dark groove round each rune (lines mask), for contrast when small
+DOT_R, DOT_OUTLINE_R = 1.5, 2.6
 
 # Corner mark: a bind rune of ᚾ ᚨ ᛏ (the first three runes of the title) on one
 # stave, in the same 6 x 12 box as the runes: ᛏ's arrow on top, ᚨ sharing the
@@ -67,22 +70,26 @@ MODES = {  # mode: (stone, ink, gold, gold edge)
 
 
 def rune_marks(mode="web"):
-    _, _, gold, gold_edge = MODES[mode]
+    _, ink, gold, gold_edge = MODES[mode]
     flat = mode != "web"           # masks: one stroke, no fake rim
+    if mode == "lines":            # the groove round each rune; the rune itself covers its middle
+        gold, width, dot_r = ink, RUNE_OUTLINE, DOT_OUTLINE_R
+    else:
+        width, dot_r = RUNE_LINE, DOT_R
     out = []
     for i, ch in enumerate(TEXT):
         x = (i + 0.5) * PITCH
         if ch == ":":
             for y in (BAND / 2 - 2.5, BAND / 2 + 2.5):
                 if flat:
-                    out.append(f'<circle cx="{x}" cy="{y}" r="1.3" fill="{gold}"/>')
+                    out.append(f'<circle cx="{x}" cy="{y}" r="{dot_r}" fill="{gold}"/>')
                 else:
                     out.append(f'<circle cx="{x}" cy="{y}" r="1.5" fill="{gold_edge}"/>'
                                f'<circle cx="{x}" cy="{y}" r="1.05" fill="{gold}"/>')
         else:
             t = f'translate({x - 3},{BAND / 2 - 6})'
             if flat:
-                out.append(f'<path transform="{t}" d="{RUNES[ch]}" stroke="{gold}" stroke-width="2.1"/>')
+                out.append(f'<path transform="{t}" d="{RUNES[ch]}" stroke="{gold}" stroke-width="{width}"/>')
             else:
                 out.append(f'<path transform="{t}" d="{RUNES[ch]}" stroke="{gold_edge}" stroke-width="2.9"/>'
                            f'<path transform="{t}" d="{RUNES[ch]}" stroke="{gold}" stroke-width="1.5"/>')
@@ -111,8 +118,10 @@ def svg(mode="web", scale=1):
         if mode == "web":
             mark = (f'<path transform="{t}" d="{BIND_RUNE}" stroke="{gold_edge}" stroke-width="{2.9 / k:.2f}"/>'
                     f'<path transform="{t}" d="{BIND_RUNE}" stroke="{gold}" stroke-width="{1.5 / k:.2f}"/>')
+        elif mode == "lines":
+            mark = f'<path transform="{t}" d="{BIND_RUNE}" stroke="{ink}" stroke-width="{RUNE_OUTLINE / k:.2f}"/>'
         else:
-            mark = f'<path transform="{t}" d="{BIND_RUNE}" stroke="{gold}" stroke-width="{2.1 / k:.2f}"/>'
+            mark = f'<path transform="{t}" d="{BIND_RUNE}" stroke="{gold}" stroke-width="{RUNE_LINE / k:.2f}"/>'
         return f"""<g>
       <rect width="{BAND}" height="{BAND}" fill="{stone}"{corner_fill}/>
       <path d="M{BAND},{EDGE}H{EDGE}V{BAND}" stroke="{ink}" stroke-width="{LINE}" fill="none" stroke-linejoin="round"/>
