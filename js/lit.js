@@ -127,9 +127,11 @@
   const canvas = document.createElement("canvas");
   canvas.setAttribute("aria-hidden", "true");
   canvas.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:10;" +
-    "opacity:0;transition:opacity .35s ease-out";
+    "opacity:0";
   const gl = canvas.getContext("webgl2", { premultipliedAlpha: true, antialias: false });
-  const giveUp = () => document.documentElement.classList.remove("lit-pending");   // static stays
+  const giveUp = () => document.documentElement.classList.remove("lit-pending", "loading");   // static stays
+  let revealed = false, pageReady = !window.pageReady;
+  if (window.pageReady) window.pageReady.then(() => { pageReady = true; });
   if (!gl) { giveUp(); return; }
 
   const FRAME_FRAG = `#version 300 es
@@ -858,7 +860,12 @@
       gl.uniform4fv(U.uRect, rectOf(ring, dpr));
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
-    if (canvas.style.opacity !== "1") canvas.style.opacity = "1";   // fade in once it has drawn
+    if (!revealed && pageReady) {               // the card and the lit frame appear together,
+      revealed = true;                          // complete; then the scene's transition starts
+      canvas.style.opacity = "1";
+      document.documentElement.classList.remove("loading", "lit-pending");
+      introStart = null;
+    }
     requestAnimationFrame(frame);
   }
 
@@ -948,7 +955,7 @@
     document.body.append(canvas, guides);
     panel();
     document.documentElement.classList.add("lit");   // hide the static ring and border
-    document.documentElement.classList.remove("lit-pending");
+    // the card and the canvas are shown together by frame() once everything has loaded
     if (video) loadImage(SKY_MASK).then(initNight).catch(e => console.warn("lit.js: no sky mask, no night mode", e));
     requestAnimationFrame(frame);
   }).catch(e => { console.warn("lit.js: textures failed, keeping the static version", e); giveUp(); });

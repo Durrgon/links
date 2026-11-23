@@ -25,20 +25,33 @@
     <!-- found late otherwise (only referenced from the CSS): fetch them right away -->
     <link rel="preload" href="fonts/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="preload" href="images/rune-border.webp" as="image">
-    <!-- ?lit: hide the static ring and border from the start (the canvas fades in instead),
-         fetch the lighting script and textures early; show the static ones again after 3 s
-         if the lighting never started -->
+    <!-- The card stays hidden (space kept) until what it shows has loaded: the font, the
+         banner, avatar and border images, so it appears complete in one go. With ?lit the
+         lighting script shows it instead, once its canvas has drawn (static ring and border
+         hidden meanwhile). After 3 s it is shown regardless. -->
     <script>
-      if (/[?&]lit(=|&|$)/.test(location.search)) {
+      (() => {
         const html = document.documentElement;
-        html.classList.add("lit-pending");
-        for (const [href, as] of [["js/lit.js", "script"], ["images/lit/border.png", "image"], ["images/lit/ring.png", "image"]]) {
-          const l = document.createElement("link");
-          l.rel = "preload"; l.href = href; l.as = as;
-          document.head.append(l);
+        const lit = /[?&]lit(=|&|$)/.test(location.search);
+        html.classList.add("loading");
+        if (lit) {
+          html.classList.add("lit-pending");
+          for (const [href, as] of [["js/lit.js", "script"], ["images/lit/border.png", "image"], ["images/lit/ring.png", "image"]]) {
+            const l = document.createElement("link");
+            l.rel = "preload"; l.href = href; l.as = as;
+            document.head.append(l);
+          }
         }
-        setTimeout(() => { if (!html.classList.contains("lit")) html.classList.remove("lit-pending"); }, 3000);
-      }
+        const image = src => new Promise(done => { const i = new Image(); i.onload = i.onerror = done; i.src = src; });
+        const images = ["images/rune-border.webp", "images/banner.webp", "images/avatar.webp"]
+          .concat(lit ? [] : ["images/avatar-frame.webp"]);
+        window.pageReady = Promise.all([document.fonts ? document.fonts.load("1em Roboto") : 0, ...images.map(image)]);
+        if (!lit) window.pageReady.then(() => html.classList.remove("loading"));
+        setTimeout(() => {
+          html.classList.remove("loading");
+          if (!html.classList.contains("lit")) html.classList.remove("lit-pending");
+        }, 3000);
+      })();
     </script>
     <link rel="stylesheet" type="text/css" href="css/main.css" />
     <link rel="stylesheet" type="text/css" href="css/carrd-canvas.css" />

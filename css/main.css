@@ -163,3 +163,9 @@ html.lit-pending .avatar-ring {
 html.lit-pending .--site-main .--container-component.--instance-container02 {
     border-image: none
 }
+
+/* Until its contents have loaded (see the script in index.html's head), the card is hidden
+   with its space kept, so it appears complete in one go */
+html.loading .--site-main .--container-component.--instance-container02 {
+    visibility: hidden
+}
