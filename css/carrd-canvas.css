@@ -684,20 +684,20 @@
     @media screen and (min-width:737px) {
         html,
         .canvas-wrapper {
-            font-size: max(7px, min(11.9pt, 1.61vh))
+            font-size: max(7px, min(11.9pt, var(--fit-vh, 1.61vh)))
         }
     }
 
     @media screen and (min-width:737px) and (max-width:1680px) {
         html,
         .canvas-wrapper {
-            font-size: max(7px, min(8.4pt, 1.61vh))
+            font-size: max(7px, min(8.4pt, var(--fit-vh, 1.61vh)))
         }
     }
 
     @media screen and (min-width:737px) and (max-width:980px) {
         html,
         .canvas-wrapper {
-            font-size: max(7px, min(7.7pt, 1.61vh))
+            font-size: max(7px, min(7.7pt, var(--fit-vh, 1.61vh)))
         }
     }

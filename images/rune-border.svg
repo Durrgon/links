@@ -17,6 +17,7 @@
       <feComposite in="textured" in2="SourceGraphic" operator="in"/>
     </filter>
   </defs>
+  
   <g transform="translate(0,0)"><g>
       <rect width="26" height="26" fill="#a7adb4" filter="url(#grain-corner)"/>
       <path d="M26,1.4H1.4V26" stroke="#26262a" stroke-width="1.6" fill="none" stroke-linejoin="round"/>

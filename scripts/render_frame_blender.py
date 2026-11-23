@@ -13,9 +13,10 @@ Then, from the repo root:
 (written for Blender 5.3, the Steam version)
 
 Options (all optional):
-    --variant plain|head          which frame (default plain)
+    --variant plain|head|border   which frame (default plain); border = scripts/make_rune_border.py --masks
     --runes gold|silver|bronze|copper|iron|red   rune material (default gold)
     --rune-height 1.0             raised runes > 0, carved-in runes < 0
+    --rune-roughness 0.45         metal roughness (default per metal; rougher reads brighter small)
     --stone slate|granite|sandstone|basalt   stone colours (default slate)
     --hdri studio|forest|city|courtyard|interior|night|sunrise|sunset (default studio)
     --sun-azimuth 135             degrees, 0 = from the right, 90 = from the top
@@ -53,9 +54,10 @@ STONES = {  # dark, light (linear), roughness
 def parse_args():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     p = argparse.ArgumentParser()
-    p.add_argument("--variant", default="plain", choices=["plain", "head"])
+    p.add_argument("--variant", default="plain", choices=["plain", "head", "border"])
     p.add_argument("--runes", default="gold", choices=list(METALS))
     p.add_argument("--rune-height", type=float, default=1.0)
+    p.add_argument("--rune-roughness", type=float, help="override the metal's roughness (rougher = brighter when small)")
     p.add_argument("--stone", default="slate", choices=list(STONES))
     p.add_argument("--hdri", default="studio")
     p.add_argument("--sun-azimuth", type=float, default=135)
@@ -112,22 +114,28 @@ def build_material(args):
     get = lambda name, y: mask(nodes, links, uv, os.path.join(masks, f"{args.variant}-{name}.png"), -1100, y)
     shape, lines, runes = get("shape", 400), get("lines", 0), get("runes", -400)
 
-    # Stone: two-tone noise, plus a little of it as surface relief.
-    noise = nodes.new("ShaderNodeTexNoise")
-    noise.location = (-1100, 800)
-    noise.inputs["Scale"].default_value = 60
-    noise.inputs["Detail"].default_value = 10
-    noise.inputs["Roughness"].default_value = 0.6
-    links.new(uv.outputs["Object"], noise.inputs["Vector"])
+    # Stone: two-tone grain, plus a little of it as surface relief. A <variant>-grain.png
+    # (the border has one, stitched so its repeats join up) replaces Blender's noise.
+    grain_map = os.path.join(masks, f"{args.variant}-grain.png")
+    if os.path.exists(grain_map):
+        grain = mask(nodes, links, uv, grain_map, -1100, 800)
+    else:
+        noise = nodes.new("ShaderNodeTexNoise")
+        noise.location = (-1100, 800)
+        noise.inputs["Scale"].default_value = 60
+        noise.inputs["Detail"].default_value = 10
+        noise.inputs["Roughness"].default_value = 0.6
+        links.new(uv.outputs["Object"], noise.inputs["Vector"])
+        grain = noise.outputs["Fac"]
     ramp = nodes.new("ShaderNodeValToRGB")
     ramp.location = (-850, 800)
     dark, light, stone_rough = STONES[args.stone]
     ramp.color_ramp.elements[0].position, ramp.color_ramp.elements[1].position = 0.35, 0.7
     ramp.color_ramp.elements[0].color, ramp.color_ramp.elements[1].color = (*dark, 1), (*light, 1)
-    links.new(noise.outputs["Fac"], ramp.inputs["Fac"])
+    links.new(grain, ramp.inputs["Fac"])
 
     # Height: stone grain, carved lines sunk in, runes raised (or sunk).
-    h = math_node(nodes, links, "MULTIPLY", noise.outputs["Fac"], 0.15, -600, 300)
+    h = math_node(nodes, links, "MULTIPLY", grain, 0.15, -600, 300)
     h = math_node(nodes, links, "SUBTRACT", h, math_node(nodes, links, "MULTIPLY", lines, 0.7, -800, 100), -450, 250)
     h = math_node(nodes, links, "ADD", h, math_node(nodes, links, "MULTIPLY", runes, args.rune_height, -800, -300), -300, 200)
     bump = nodes.new("ShaderNodeBump")
@@ -140,6 +148,8 @@ def build_material(args):
     links.new(ramp.outputs["Color"], stone.inputs["Base Color"])
     groove = principled(nodes, tuple(c * 0.35 for c in dark), 0.0, 0.95, 100, 200)
     colour, metallic, rough = METALS[args.runes]
+    if args.rune_roughness is not None:
+        rough = args.rune_roughness
     rune = principled(nodes, colour, metallic, rough, 100, -300)
     for b in (stone, groove, rune):
         links.new(bump.outputs["Normal"], b.inputs["Normal"])
