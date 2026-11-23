@@ -38,12 +38,12 @@ DOT_R, DOT_OUTLINE_R = 1.5, 2.6
 
 # Corner mark: the NAT bind rune, read from its own file so it can be edited in any
 # tool. Only its shape (alpha) is used; colours, outline and masks are made from it.
-# .svg: its viewBox is -10 -10 80 140 around a 60 x 120 rune box (an element with
-#       id="guide" is ignored). .psd / .png: an image with that same framing, e.g.
+# .svg: a 60 x 120 rune box (0,0 to 60,120) with a margin set by its viewBox (an
+#       element with id="guide" is ignored). .psd / .png: an image with that same framing, e.g.
 #       one exported with --psd.
 ART = Path(__file__).resolve().parent.parent / "art"
 BIND_RUNE_FILE = ART / "bind-rune.svg"     # or ART / "bind-rune.psd"
-BIND_RUNE_HEIGHT = 17.4    # rune box height in the 26-wide corner
+BIND_RUNE_HEIGHT = 12     # rune box height: the same as the runes (12)
 MARK_RIM = 0.7             # web SVG: dark rim round the gold
 MARK_OUTLINE = 1.1         # masks: carved groove round the mark (like RUNE_OUTLINE)
 
@@ -70,9 +70,13 @@ def bind_rune_art():
     import base64
     import re
     import subprocess
+    # The SVG's viewBox gives the framing round the 60 x 120 rune box; a .psd/.png
+    # is taken to have the same framing (as --psd exports it).
+    vb_x, vb_y, vb_w, vb_h = map(float, re.search(
+        r'viewBox="([^"]+)"', (ART / "bind-rune.svg").read_text(encoding="utf-8")).group(1).split())
     f = BIND_RUNE_HEIGHT / 120                     # file units -> corner units
-    x, y = BAND / 2 - 30 * f - 10 * f, BAND / 2 - 60 * f - 10 * f
-    w, h = 80 * f, 140 * f
+    x, y = BAND / 2 + (vb_x - 30) * f, BAND / 2 + (vb_y - 60) * f
+    w, h = vb_w * f, vb_h * f
     path = BIND_RUNE_FILE
     if path.suffix.lower() == ".svg":
         text = path.read_text(encoding="utf-8")

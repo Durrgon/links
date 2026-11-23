@@ -1,12 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="160" height="280" viewBox="-10 -10 80 140">
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="300" viewBox="-15 -15 90 150">
   <!-- NAT bind rune for the corners of the rune border (scripts/make_rune_border.py).
        Edit freely: only the SHAPE is used (everything that isn't transparent), so
        colours don't matter; stroke width, extra paths and filled shapes all work.
-       The rune box is 0,0 to 60,120 (dashed guide); the viewBox leaves a margin.
+       The rune box is 0,0 to 60,120 (dashed guide), the same size as the runes beside
+       it; stroke width 24 matches their strokes. The viewBox leaves a margin.
        One layer per rune, each with the shared stave; together they make the bind rune. -->
   <rect x="0" y="0" width="60" height="120" fill="none" stroke="#7aa7ff" stroke-width="0.5"
         stroke-dasharray="3 3" opacity="0.6" id="guide"/>
-  <g fill="none" stroke-width="16.5" stroke-linecap="round" stroke-linejoin="round">
+  <g fill="none" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
     <!-- ᛏ (t): stave with the arrow on top -->
     <path id="rune-t" stroke="#c9c9c9" d="M30,0V120 M0,30L30,0L60,30"/>
     <!-- ᚨ (a): stave with two branches down to the right (the top one is ᛏ's right arm) -->
