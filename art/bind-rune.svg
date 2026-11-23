@@ -1,20 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="180" height="300" viewBox="-15 -15 90 150">
   <!-- NAT bind rune for the corners of the rune border (scripts/make_rune_border.py).
        Edit freely: only the SHAPE is used (everything that isn't transparent), so
-       colours don't matter; stroke width, extra paths and filled shapes all work.
-       The rune box is 0,0 to 60,120 (dashed guide), the same size as the runes beside
-       it; stroke width 20 matches their strokes, with flat ends and pointed corners
-       like the runes. The viewBox leaves a margin.
-       One layer per rune, each with the shared stave; together they make the bind rune. -->
+       colours don't matter; any paths, strokes or filled shapes work.
+       The rune box is 0,0 to 60,120 (dashed guide), the same size as the runes beside it.
+       Each stroke is a straight-sided tapered shape like the border's runes (17 wide in the
+       middle, 12 at the flat-cut tips). One layer per rune, each with the shared stave;
+       together they make the bind rune. -->
   <rect x="0" y="0" width="60" height="120" fill="none" stroke="#7aa7ff" stroke-width="0.5"
         stroke-dasharray="3 3" opacity="0.6" id="guide"/>
-  <g fill="none" stroke-width="20" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4">
-    <!-- ᛏ (t): stave with the arrow on top -->
-    <path id="rune-t" stroke="#c9c9c9" d="M30,0V120 M0,30L30,0L60,30"/>
-    <!-- ᚨ (a): stave with two branches down to the right (the top one is ᛏ's right arm);
-         the second sits low enough to leave a clear gap at this stroke width -->
-    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,42L60,72"/>
-    <!-- ᚾ (n): stave with the cross-stroke lower down -->
-    <path id="rune-n" stroke="#c9c9c9" d="M30,0V120 M10,75L50,105"/>
+  <g>
+    <!-- ᛏ (t): stave with the arrow on top; centre lines: M30,0V120 M0,30L30,0L60,30 -->
+    <path id="rune-t" fill="#c9c9c9" d="M24.000 0.000L21.500 60.000L24.000 120.000L36.000 120.000L38.500 60.000L36.000 0.000ZM4.243 34.243L21.010 21.010L34.243 4.243L25.757 -4.243L8.990 8.990L-4.243 25.757ZM25.757 4.243L38.990 21.010L55.757 34.243L64.243 25.757L51.010 8.990L34.243 -4.243ZM25.757 4.243L34.243 4.243L36.000 0.000L34.243 -4.243L25.757 -4.243L24.000 0.000Z"/>
+    <!-- ᚨ (a): stave with two branches down to the right (the top one is ᛏ's right arm;
+         the second sits low enough to leave a clear gap); centre lines: M30,0V120 M30,0L60,30 M30,42L60,72 -->
+    <path id="rune-a" fill="#c9c9c9" d="M24.000 0.000L21.500 60.000L24.000 120.000L36.000 120.000L38.500 60.000L36.000 0.000ZM25.757 4.243L38.990 21.010L55.757 34.243L64.243 25.757L51.010 8.990L34.243 -4.243ZM25.757 46.243L38.990 63.010L55.757 76.243L64.243 67.757L51.010 50.990L34.243 37.757ZM25.757 4.243L36.000 0.000L34.243 -4.243L24.000 0.000Z"/>
+    <!-- ᚾ (n): stave with the cross-stroke lower down; centre lines: M30,0V120 M10,75L50,105 -->
+    <path id="rune-n" fill="#c9c9c9" d="M24.000 0.000L21.500 60.000L24.000 120.000L36.000 120.000L38.500 60.000L36.000 0.000ZM6.400 79.800L24.900 96.800L46.400 109.800L53.600 100.200L35.100 83.200L13.600 70.200Z"/>
   </g>
 </svg>

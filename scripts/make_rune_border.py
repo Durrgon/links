@@ -26,7 +26,7 @@ OUT = Path(__file__).resolve().parent.parent / "images" / "rune-border.svg"
 
 BAND = 26                  # band width = border-image slice
 PITCH = 11.5               # spacing between runes along the band
-TEXT = "ᚾᚨᛏᛏᚠᛟᛞᛞ:ᛞᚱᚨᚲᛟᚾ:"  # one tile = one pass
+TEXT = "ᚾᚨᛏᛏᚠᛟᛞᛞ:ᛞᚱᚨᚲᛟᚾ:"  # one tile = one pass; the last ":" sits on the seam (see rune_marks)
 TILE = round(PITCH * len(TEXT))   # tile length
 S = 2 * BAND + TILE        # whole image
 
@@ -36,11 +36,14 @@ GOLD = "#d2a54a"           # rune fill
 GOLD_EDGE = "#5a4317"      # dark rim under the gold, so it reads as inlaid
 LINE = 1.6
 EDGE = 1.4                 # how far the carved edge lines sit inside the band
-RUNE_LINE = 2.0            # rune stroke width in the masks
-RUNE_OUTLINE = 4.2         # carved dark groove round each rune (lines mask), for contrast when small
-# Runes are cut sharp: flat stroke ends and pointed corners, like chisel cuts.
-RUNE_CAPS = 'stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4"'
-DOT_R, DOT_OUTLINE_R = 1.5, 2.6
+# Runes are drawn as tapered strokes, like chisel cuts: each straight stroke is a filled
+# shape, widest in the middle and narrowing to small rounded tips, so strokes just
+# overlap where they meet (no spikes from pointed joins, no blobs from round caps).
+RUNE_W_MID = 1.7           # stroke width at its middle
+RUNE_W_END = 1.2           # stroke width at its ends
+RUNE_TIPS = "flat"         # "flat" (chisel-cut ends) or "round"
+RUNE_GROOVE = 0.9          # carved dark groove round each rune (lines mask), for contrast when small
+DOT_R = 1.4
 
 # Corner mark: the NAT bind rune, read from its own file so it can be edited in any
 # tool. Only its shape (alpha) is used; colours, outline and masks are made from it.
@@ -51,7 +54,7 @@ ART = Path(__file__).resolve().parent.parent / "art"
 BIND_RUNE_FILE = ART / "bind-rune.svg"     # or ART / "bind-rune.psd"
 BIND_RUNE_HEIGHT = 12     # rune box height: the same as the runes (12)
 MARK_RIM = 0.7             # web SVG: dark rim round the gold
-MARK_OUTLINE = 1.1         # masks: carved groove round the mark (like RUNE_OUTLINE)
+MARK_OUTLINE = RUNE_GROOVE # masks: carved groove round the mark
 
 
 def grain(fid, w, h, raw=False):
@@ -165,31 +168,85 @@ MODES = {  # mode: (stone, ink, gold, gold edge)
 }
 
 
+def taper(d, w_mid=RUNE_W_MID, w_end=RUNE_W_END):
+    """A stroke path made of straight segments (absolute M, L, H, V) as filled, tapered
+    shapes: one per segment, straight sides widest in the middle, flat-cut (or rounded)
+    tips. Where strokes meet, the join is filled with the hull of their cut ends, so a
+    flat-cut apex (like ᛏ's arrow) comes out sharp instead of notched."""
+    import math
+    import re
+    out, x, y = [], 0.0, 0.0
+    ends = {}                                              # point -> cut-end corners there
+    for cmd, args in re.findall(r"([MLHV])([^MLHV]*)", d):
+        nums = [float(n) for n in re.findall(r"-?\d*\.?\d+", args)]
+        if cmd == "M":
+            x, y = nums[0], nums[1]
+            continue
+        nx, ny = (nums[0], nums[1]) if cmd == "L" else (nums[0], y) if cmd == "H" else (x, nums[0])
+        length = math.hypot(nx - x, ny - y)
+        if length:
+            ux, uy = (nx - x) / length, (ny - y) / length
+            px, py = -uy, ux                               # normal
+            he, hm = w_end / 2, w_mid / 2
+            mx, my = (x + nx) / 2, (y + ny) / 2
+            tip = he * 1.4
+            pts = lambda *xy: " ".join(f"{v:.3f}" for v in xy)
+            out.append(
+                f"M{pts(x + px * he, y + py * he)}"
+                f"L{pts(mx + px * hm, my + py * hm)}L{pts(nx + px * he, ny + py * he)}"
+                + (f"Q{pts(nx + ux * tip, ny + uy * tip, nx - px * he, ny - py * he)}" if RUNE_TIPS == "round"
+                   else f"L{pts(nx - px * he, ny - py * he)}")
+                + f"L{pts(mx - px * hm, my - py * hm)}L{pts(x - px * he, y - py * he)}"
+                + (f"Q{pts(x - ux * tip, y - uy * tip, x + px * he, y + py * he)}Z" if RUNE_TIPS == "round" else "Z"))
+            for (ex, ey) in ((x, y), (nx, ny)):
+                ends.setdefault((round(ex, 3), round(ey, 3)), []).extend(
+                    [(ex + px * he, ey + py * he), (ex - px * he, ey - py * he)])
+        x, y = nx, ny
+    for corners in ends.values():
+        if len(corners) >= 4:                              # two or more strokes meet here
+            hull = convex_hull(corners)[::-1]              # same winding as the strokes, or they cancel
+            out.append("M" + "L".join(f"{a:.3f} {b:.3f}" for a, b in hull) + "Z")
+    return "".join(out)
+
+
+def convex_hull(points):
+    """Convex hull of 2D points (monotone chain), in order."""
+    pts = sorted(set(points))
+    if len(pts) < 3:
+        return pts
+    cross = lambda o, a, b: (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    lower, upper = [], []
+    for p in pts:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
+            lower.pop()
+        lower.append(p)
+    for p in reversed(pts):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
+            upper.pop()
+        upper.append(p)
+    return lower[:-1] + upper[:-1]
+
+
 def rune_marks(mode="web"):
+    """The runes as tapered shapes. Web: gold with a thin dark rim. Masks: white; in the
+    lines mask they are widened by RUNE_GROOVE (#groove filter) into the carved groove."""
     _, ink, gold, gold_edge = MODES[mode]
-    flat = mode != "web"           # masks: one stroke, no fake rim
-    if mode == "lines":            # the groove round each rune; the rune itself covers its middle
-        gold, width, dot_r = ink, RUNE_OUTLINE, DOT_OUTLINE_R
-    else:
-        width, dot_r = RUNE_LINE, DOT_R
+    colour = ink if mode == "lines" else gold
+    rim = f' stroke="{gold_edge}" stroke-width="0.6" paint-order="stroke"' if mode == "web" else ""
     out = []
-    for i, ch in enumerate(TEXT):
-        x = (i + 0.5) * PITCH
+    # The closing ":" sits exactly on the seam, half at each end of the tile, so repeats
+    # show one divider between passes and every corner gets a divider on both sides
+    # (the halves at the strip ends land in the corner pieces).
+    marks = [(0, ":")] + [((i + 1) * PITCH, ch) for i, ch in enumerate(TEXT)]
+    for x, ch in marks:
         if ch == ":":
             for y in (BAND / 2 - 2.5, BAND / 2 + 2.5):
-                if flat:
-                    out.append(f'<circle cx="{x}" cy="{y}" r="{dot_r}" fill="{gold}"/>')
-                else:
-                    out.append(f'<circle cx="{x}" cy="{y}" r="1.5" fill="{gold_edge}"/>'
-                               f'<circle cx="{x}" cy="{y}" r="1.05" fill="{gold}"/>')
+                out.append(f'<circle cx="{x}" cy="{y}" r="{DOT_R}" fill="{colour}"{rim}/>')
         else:
             t = f'translate({x - 3},{BAND / 2 - 6})'
-            if flat:
-                out.append(f'<path transform="{t}" d="{RUNES[ch]}" stroke="{gold}" stroke-width="{width}"/>')
-            else:
-                out.append(f'<path transform="{t}" d="{RUNES[ch]}" stroke="{gold_edge}" stroke-width="2.9"/>'
-                           f'<path transform="{t}" d="{RUNES[ch]}" stroke="{gold}" stroke-width="1.5"/>')
-    return "\n      ".join(out)
+            out.append(f'<path transform="{t}" d="{taper(RUNES[ch])}" fill="{colour}"{rim}/>')
+    group = "\n      ".join(out)
+    return f'<g filter="url(#groove)">{group}</g>' if mode == "lines" else group
 
 
 def svg(mode="web", scale=1):
@@ -200,7 +257,7 @@ def svg(mode="web", scale=1):
     tile = f"""<g id="tile">
       <rect width="{TILE}" height="{BAND}" fill="{stone}"{tile_fill}/>
       <path d="M0,{EDGE}H{TILE}M0,{BAND - EDGE}H{TILE}" stroke="{ink}" stroke-width="{LINE}"/>
-      <g fill="none" {RUNE_CAPS}>
+      <g>
       {rune_marks(mode)}
       </g>
     </g>"""
@@ -220,14 +277,15 @@ def svg(mode="web", scale=1):
     </g>"""
 
     tile = tile.replace(' id="tile"', "")
-    place = [  # (piece, transform); each piece written out in full rather than reused with <use>
+    place = [  # (piece, transform); each piece written out in full rather than reused with <use>.
+        # Corners first: the tiles' half dividers at their ends draw over the corners.
         (corner(0), "translate(0,0)"),
-        (tile, f"translate({BAND},0)"),
         (corner(90), f"translate({S},0) rotate(90)"),
-        (tile, f"translate({S},{BAND}) rotate(90)"),
         (corner(180), f"translate({S},{S}) rotate(180)"),
-        (tile, f"translate({S - BAND},{S}) rotate(180)"),
         (corner(270), f"translate(0,{S}) rotate(270)"),
+        (tile, f"translate({BAND},0)"),
+        (tile, f"translate({S},{BAND}) rotate(90)"),
+        (tile, f"translate({S - BAND},{S}) rotate(180)"),
         (tile, f"translate(0,{S - BAND}) rotate(270)"),
     ]
     uses = "\n  ".join(f'<g transform="{t}">{piece}</g>' for piece, t in place)
@@ -240,6 +298,9 @@ def svg(mode="web", scale=1):
     {grain("grain-tile", TILE, BAND, raw)}
     {grain("grain-corner", BAND, BAND, raw)}
     {mark_filter(mode)}
+    <filter id="groove" filterUnits="userSpaceOnUse" x="{-PITCH}" y="0" width="{TILE + 2 * PITCH}" height="{BAND}">
+      <feMorphology in="SourceGraphic" operator="dilate" radius="{RUNE_GROOVE}"/>
+    </filter>
   </defs>
   {background}
   {uses}
