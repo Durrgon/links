@@ -48,6 +48,7 @@
     fill: 1.0,                 // even light (ambient) multiplier
     bump: 1.6,
     sparkle: 1.0,              // glints on the metal
+    extreme: false,            // testing: big, frequent, very bright glints
   };
   const aim = { x: null, y: null };          // null = the card's centre
   const pinned = { x: null, y: null };       // null = brightest spot of the video
@@ -150,6 +151,7 @@
   uniform vec3 uAmbient;
   uniform vec3 uEnv;               // what the metal reflects
   uniform float uSparkle;          // strength of the glints on the metal
+  uniform vec4 uGlint;             // cell size (CSS px), chance threshold, sharpness, gain
   uniform vec3 uView;              // direction to the viewer, in the card's own frame
   uniform float uTime;
 
@@ -210,12 +212,12 @@
     vec3 pos = vec3(screen, h0 * 6.0 * uDpr);
 
     // Glint facets: screen cells of ~2.5 CSS px; about 1 in 6 can sparkle, only on metal.
-    vec2 gp = screen / (2.5 * uDpr);
+    vec2 gp = screen / (uGlint.x * uDpr);
     vec2 gcell = floor(gp);
     float gr = hash(gcell);
     float glintCell = 0.0;
     vec3 facet = n;
-    if (metal > 0.35 && gr > 0.84 && uSparkle > 0.0) {
+    if (metal > 0.35 && gr > uGlint.y && uSparkle > 0.0) {
       float point = smoothstep(0.5, 0.0, length(fract(gp) - 0.5));         // a small round point
       float twinkle = 0.8 + 0.2 * sin(uTime * 0.0013 + gr * 90.0);          // very slight
       glintCell = point * twinkle;
@@ -241,8 +243,8 @@
       // Glints: a few tiny facets on the metal, each tilted a little at random, flash when a
       // light lines up with them, so they come and go as the lights drift.
       if (glintCell > 0.0) {
-        float g = pow(max(dot(facet, h), 0.0), 160.0) * glintCell * ndl;
-        col += spot * uLightCol[i] * uMetal * g * uSparkle * 6.0;
+        float g = pow(max(dot(facet, h), 0.0), uGlint.z) * glintCell * ndl;
+        col += spot * uLightCol[i] * mix(uMetal, vec3(1.0), 0.4) * g * uSparkle * uGlint.w;
       }
     }
     col = col / (1.0 + col * 0.45);      // soft tone curve so highlights don't clip hard
@@ -268,9 +270,20 @@
   bg.style.cssText = "position:absolute;pointer-events:none;z-index:0;display:none";
   const bgl = bg.getContext("webgl2", { premultipliedAlpha: false, antialias: false });
   let BU = null, bgVideoTex = null, bgMaskTex = null, bgPosterUploaded = false;
-  const moon = { u: 0.62, v: 0.08 };        // replaced from the sky mask once it loads
-  const sun = { u: 0.6, v: 0.35 };
+  const moon = { u: 0.62, v: 0.08, up: 1 };  // placed along their paths by the hour
+  const sun = { u: 0.6, v: 0.35, up: 1 };     // up: 0 below the horizon .. 1 well above it
   let skyBottom = 0.45;
+  const path = { rise: { u: 0.1, v: 0.4 }, set: { u: 0.6, v: 0.45 }, apex: 0.08 };
+  // Where a body is at fraction f of its trip across the sky (0 = rising, 1 = setting;
+  // outside 0..1 it is below the horizon).
+  function bodyAt(f, out) {
+    const lerp = (a, b) => a + (b - a) * f;
+    const arc = Math.sin(Math.PI * f);
+    const base = lerp(path.rise.v, path.set.v);
+    out.u = lerp(path.rise.u, path.set.u);
+    out.v = base + (path.apex - base) * Math.max(arc, 0) + Math.min(arc, 0) * 0.15;
+    out.up = Math.min(1, Math.max(0, (arc + 0.05) / 0.25));
+  }
 
   const SCENE_FRAG = `#version 300 es
   precision highp float;
@@ -341,14 +354,19 @@
     for (let y = top; y < Math.min(c.height, top + c.height * 0.12); y++)
       for (let xx = 0; xx < c.width; xx++) if (d[(y * c.width + xx) * 4] > 230) { sx += xx; n++; }
     if (n) { moon.u = sx / n / c.width + 0.04; moon.v = top / c.height + 0.09; }
-    // sun (golden hour): low in the sky, just above the horizon (the sky's lowest point)
-    let bottom = 0, bx = 0;
+    // Paths for the sun and moon: they rise behind the mountain on the left (the sky's
+    // leftmost point), arc up near the top of the sky and set into the gap between the
+    // peaks (the sky's lowest point). The sky mask hides them behind the mountains.
+    let bottom = 0, bx = 0, left = c.width, ly = 0;
     for (let i = 0; i < c.width * c.height; i++) if (d[i * 4] > 230) {
-      const y = Math.floor(i / c.width);
-      if (y >= bottom) { bottom = y; bx = i % c.width; }
+      const y = Math.floor(i / c.width), xx = i % c.width;
+      if (y >= bottom) { bottom = y; bx = xx; }
+      if (xx < left) { left = xx; ly = y; }
     }
     skyBottom = bottom / c.height;
-    sun.u = bx / c.width; sun.v = Math.max(moon.v + 0.05, skyBottom - 0.07);
+    path.rise = { u: left / c.width - 0.04, v: ly / c.height + 0.1 };
+    path.set = { u: bx / c.width, v: skyBottom + 0.015 };
+    path.apex = top / c.height + 0.07;
     video.parentElement.append(bg);
   }
 
@@ -409,14 +427,20 @@
     const golden = Math.min(1, 1.25 * Math.max(bell(SUNRISE, 1.4), bell(SUNSET, 1.6)));
     return { night: Math.min(1, Math.max(0, night)), golden: smooth(0, 1, golden) };
   }
-  let weightsAt_ = 0;
-  function updateWeights(time) {  // eased over ~2 s (by time, not frames), so switching cross-fades
-    const dt = Math.min(1, Math.max(0, (time - weightsAt_) / 1000));
-    weightsAt_ = time;
-    const a = 1 - Math.exp(-dt * 2.2);
-    const t = weightsAt(sceneHour());
-    weights.golden += (t.golden - weights.golden) * a;
-    weights.night += (t.night - weights.night) * a;
+  // The shown time glides to the scene's hour (the short way round the clock, ~2 s), so
+  // switching scenes moves the sun and moon along their paths instead of jumping.
+  let shownHour = null, lastWeightsTime = 0;
+  function updateWeights(time) {
+    const dt = Math.min(1, Math.max(0, (time - lastWeightsTime) / 1000));
+    lastWeightsTime = time;
+    const goal = sceneHour();
+    if (shownHour === null) shownHour = goal;
+    const diff = ((goal - shownHour + 36) % 24) - 12;          // -12..12
+    shownHour = (shownHour + diff * (1 - Math.exp(-dt * 2.2)) + 24) % 24;
+    Object.assign(weights, weightsAt(shownHour));
+    bodyAt((shownHour - SUNRISE) / (SUNSET - SUNRISE), sun);
+    const night = 24 - (SUNSET - SUNRISE) + 1;                 // the moon is up a little longer
+    bodyAt((((shownHour - (SUNSET - 0.5)) % 24) + 24) % 24 / night, moon);
   }
 
   // =====================================================================================
@@ -551,7 +575,8 @@
         out.push(spot(x, y, k.col.map(v => (0.5 * v + 0.5 * lum) * keyK * (i ? 0.8 : 1.1) * dy)));
       });
       // golden hour: the low sun; night: the moon
-      for (const [w, body, col] of [[g, sun, SUN_COL], [nt, moon, MOON_COL]]) {
+      for (const [wt, body, col] of [[g, sun, SUN_COL], [nt, moon, MOON_COL]]) {
+        const w = wt * (0.25 + 0.75 * body.up);   // dimmer once it is behind the horizon
         if (w <= 0.01) continue;
         const [x, y] = pinned.x !== null && dy <= 0.01 ? [pinned.x, pinned.y] : uvToScreen(body.u, body.v);
         keySources.push([x, y]);
@@ -687,7 +712,7 @@
     drawScene(time);
     if (clock && !clock.closest("[hidden]") && time - clockAt > 500) {
       clockAt = time;
-      const h = sceneHour(), hh = Math.floor(h), mm = Math.round((h - hh) * 60);
+      const h = shownHour ?? sceneHour(), hh = Math.floor(h), mm = Math.floor((h - hh) * 60);
       clock.textContent = `Scene time ${String(hh).padStart(2, "0")}:${String(mm % 60).padStart(2, "0")}` +
         ` · golden ${weights.golden.toFixed(2)} · night ${weights.night.toFixed(2)}` +
         ` · tilt ${tilt.yaw.toFixed(0)}°, ${tilt.pitch.toFixed(0)}°`;
@@ -702,6 +727,8 @@
     gl.uniform1f(U.uDpr, dpr);
     gl.uniform1f(U.uBump, settings.bump);
     gl.uniform1f(U.uSparkle, settings.sparkle);
+    // normal: ~2.5 px points, 1 in 6, fairly exact; extreme: bigger, 1 in 2, easy to trigger
+    gl.uniform4fv(U.uGlint, settings.extreme ? [4.5, 0.5, 40, 30] : [2.5, 0.84, 160, 6]);
     gl.uniform1f(U.uTime, time);
     const ls = lights(time).slice(0, MAX_LIGHTS);
     gl.uniform3fv(U.uAmbient, scene.ambient.map(c => c * settings.fill));
@@ -764,7 +791,8 @@
       range("Key light", "key", 0, 3, 0.05) +
       range("Fill", "fill", 0, 2.5, 0.05) +
       range("Depth", "bump", 0, 6, 0.1) +
-      range("Sparkle", "sparkle", 0, 3, 0.05) +
+      range("Sparkle", "sparkle", 0, 10, 0.05) +
+      `<label for="lit-extreme">Extreme sparkle</label><input id="lit-extreme" type="checkbox" data-set="extreme">` +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
       select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
       select("Border metal", settings.border.metal, Object.keys(METALS), "border.metal") +
