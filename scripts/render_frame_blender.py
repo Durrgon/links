@@ -17,7 +17,7 @@ Options (all optional):
     --runes gold|silver|bronze|copper|iron|red   rune material (default gold)
     --rune-height 1.0             raised runes > 0, carved-in runes < 0
     --rune-roughness 0.45         metal roughness (default per metal; rougher reads brighter small)
-    --stone slate|granite|sandstone|basalt   stone colours (default slate)
+    --stone slate|granite|sandstone|basalt|blackslate   stone colours (default slate)
     --hdri studio|forest|city|courtyard|interior|night|sunrise|sunset (default studio)
     --sun-azimuth 135             degrees, 0 = from the right, 90 = from the top
     --sun-elevation 35            degrees above the ring
@@ -48,6 +48,7 @@ STONES = {  # dark, light (linear), roughness
     "granite": ((0.20, 0.20, 0.20), (0.55, 0.54, 0.52), 0.75),
     "sandstone": ((0.35, 0.22, 0.12), (0.70, 0.55, 0.38), 0.90),
     "basalt": ((0.03, 0.03, 0.035), (0.12, 0.12, 0.13), 0.70),
+    "blackslate": ((0.0015, 0.0017, 0.0022), (0.011, 0.012, 0.015), 0.75),   # near-black, for silver
 }
 
 
