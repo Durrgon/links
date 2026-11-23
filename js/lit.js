@@ -33,12 +33,12 @@
   };
   const settings = {
     ring: { stone: "slate", metal: "gold" },
-    border: { stone: "blackslate", metal: "silver" },
+    border: { stone: "blackslate", metal: "gold" },
     light: "video",            // video | pointer | orbit
     scene: "auto",             // auto (viewer's local time) | day | sunset | night | custom
     hour: 12,                  // custom: hour of the day, 0..24
     guides: false,
-    from: "viewer",            // viewer: lights sit in front of the screen, tilted towards
+    from: "scene",             // viewer: lights sit in front of the screen, tilted towards
                                //   their spot in the scene; scene: right over the spot
     distance: 900,             // viewer mode: how far in front of the screen, CSS px
     spread: 0.6,               // viewer mode: how far the tilt follows the scene spot (0..1)
@@ -48,7 +48,8 @@
     fill: 1.0,                 // even light (ambient) multiplier
     bump: 1.6,
     sparkle: 1.0,              // glints on the metal
-    extreme: false,            // testing: big, frequent, very bright glints
+    extreme: true,             // big, frequent, bright glints
+    tilt: false,               // WASD tilts the card (debugging)
   };
   const aim = { x: null, y: null };          // null = the card's centre
   const pinned = { x: null, y: null };       // null = brightest spot of the video
@@ -729,7 +730,7 @@
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (/^(input|select|textarea)$/i.test(e.target.tagName) || e.target.isContentEditable) return;
     const k = e.key.toLowerCase();
-    if ("wasd".includes(k) && k.length === 1) held.add(k);
+    if (settings.tilt && "wasd".includes(k) && k.length === 1) held.add(k);
     if (k === "r") tilt.yaw = tilt.pitch = 0;
   });
   addEventListener("keyup", e => held.delete(e.key.toLowerCase()));
@@ -743,6 +744,7 @@
     if (held.has("d")) tilt.yaw += rate * dt;
     if (held.has("w")) tilt.pitch += rate * dt;
     if (held.has("s")) tilt.pitch -= rate * dt;
+    if (!settings.tilt) { held.clear(); tilt.yaw = tilt.pitch = 0; }
     tilt.yaw = Math.max(-30, Math.min(30, tilt.yaw));
     tilt.pitch = Math.max(-30, Math.min(30, tilt.pitch));
     const on = tilt.yaw || tilt.pitch;
@@ -827,11 +829,15 @@
   function panel() {
     const p = document.createElement("div");
     p.className = "lit-panel";
+    const LABELS = { blackslate: "Black slate", red: "Red paint" };
+    const nice = o => LABELS[o] || o[0].toUpperCase() + o.slice(1);
     const select = (label, value, options, set) => {
       const id = "lit-" + label.replace(/\W+/g, "-").toLowerCase();
       return `<label for="${id}">${label}</label><select id="${id}" data-set="${set}">` +
-        options.map(o => `<option${o === value ? " selected" : ""}>${o}</option>`).join("") + "</select>";
+        options.map(o => `<option value="${o}"${o === value ? " selected" : ""}>${nice(o)}</option>`).join("") + "</select>";
     };
+    const check = (label, set) =>
+      `<label for="lit-${set}">${label}</label><input id="lit-${set}" type="checkbox" data-set="${set}"${settings[set] ? " checked" : ""}>`;
     const range = (label, set, min, max, step) => {
       const id = "lit-" + set;
       return `<label for="${id}">${label}</label><input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${settings[set]}" data-set="${set}">`;
@@ -845,19 +851,20 @@
       select("Light from", settings.from, ["viewer", "scene"], "from") +
       range("Distance", "distance", 200, 3000, 50) +
       range("Spread", "spread", 0, 1, 0.05) +
-      `<label for="lit-guides">Guides</label><input id="lit-guides" type="checkbox" data-set="guides">` +
+      check("Guides", "guides") +
+      check("WASD tilt", "tilt") +
       range("Height", "height", 60, 900, 10) +
       range("Strength", "strength", 0.2, 2.5, 0.05) +
       range("Key light", "key", 0, 3, 0.05) +
       range("Fill", "fill", 0, 2.5, 0.05) +
       range("Depth", "bump", 0, 6, 0.1) +
       range("Sparkle", "sparkle", 0, 10, 0.05) +
-      `<label for="lit-extreme">Extreme sparkle</label><input id="lit-extreme" type="checkbox" data-set="extreme">` +
+      check("Extreme sparkle", "extreme") +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
       select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
       select("Border metal", settings.border.metal, Object.keys(METALS), "border.metal") +
       select("Border stone", settings.border.stone, Object.keys(STONES), "border.stone") +
-      `<small>Shift+click: aim · Alt+click: pin light · WASD: tilt · R: untilt · L: hide · <button type="button" data-reset>reset</button></small>` +
+      `<small>Shift+click: aim · Alt+click: pin light · WASD: tilt (if on) · R: untilt · L: hide · <button type="button" data-reset>reset</button></small>` +
       `<a href="${location.pathname}">Static version</a>`;
     p.addEventListener("input", e => {
       const key = e.target.dataset.set;
