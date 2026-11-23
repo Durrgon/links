@@ -96,8 +96,9 @@ a:focus-visible {
     position: relative
 }
 
-/* The ring (images/avatar-frame.svg, from scripts/make_avatar_frame.py) is a
-   runestone serpent band; the avatar fills its inner circle (the script prints the sizes). */
+/* The ring (images/avatar-frame.webp, rendered by scripts/render_frame_blender.py from
+   the masks of scripts/make_avatar_frame.py; same framing as images/avatar-frame.svg) is a stone
+   rune ring; the avatar fills its inner circle (the script prints the sizes). */
 .avatar-frame {
     position: absolute;
     left: 50%;
@@ -127,7 +128,9 @@ a:focus-visible {
 .avatar-ring {
     inset: 0;
     width: 100%;
-    height: 100%
+    height: 100%;
+    /* the Blender render has no shadow of its own (transparent background) */
+    filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, .5))
 }
 
 .--site-main div.component-wrapper[data-type=text][data-id=text01] {
