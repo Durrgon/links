@@ -400,8 +400,8 @@
     bgl.uniform2f(BU.uMoon, moon.u, moon.v);
     bgl.uniform2f(BU.uSun, sun.u, sun.v);
     bgl.uniform1f(BU.uSkyBottom, skyBottom);
-    bgl.uniform1f(BU.uGolden, weights.golden * intro.e);
-    bgl.uniform1f(BU.uNight, weights.night * intro.e);
+    bgl.uniform1f(BU.uGolden, weights.golden);
+    bgl.uniform1f(BU.uNight, weights.night);
     bgl.uniform1f(BU.uTime, time);
     bgl.uniform1f(BU.uAspect, r.width / r.height);
     bgl.drawArrays(bgl.TRIANGLE_STRIP, 0, 4);
@@ -495,7 +495,9 @@
     if (shownHour === null) shownHour = goal;
     const diff = ((goal - shownHour + 36) % 24) - 12;          // -12..12
     shownHour = (shownHour + diff * (1 - Math.exp(-dt * 2.2)) + 24) % 24;
-    Object.assign(weights, weightsAt(shownHour));
+    const w = weightsAt(shownHour);
+    weights.golden = w.golden * intro.e;       // starts as day, eases into the scene
+    weights.night = w.night * intro.e;
     const { rise, set } = sunTimes;
     bodyAt((shownHour - rise) / (set - rise), sun);
     const night = 24 - (set - rise) + 1;                       // the moon is up a little longer
@@ -696,10 +698,11 @@
   // =====================================================================================
   let texBorder, texRing, clock = null, clockAt = -1e9;
 
-  // Intro: when the page loads the lights come up over INTRO_MS: key lights glide in from
-  // above the card, everything brightens from dim, the scene grade (sunset/night) eases
-  // in and the sparkle comes last. Reduced motion: a short fade only.
-  const INTRO_MS = reduceMotion ? 400 : 2200;
+  // Intro: the page starts as plain, fully lit daylight (like the static version) and the
+  // whole scene, background and the frame's lights together, eases into the current time of
+  // day over INTRO_MS (ease-in-out cubic); key lights glide in from above the card and the
+  // sparkle comes last. Reduced motion: a short fade without the glide.
+  const INTRO_MS = reduceMotion ? 400 : 2600;
   let introStart = null;
   const intro = { e: 0, glide: 0 };           // eased progress: lighting, key-light glide
   const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -712,11 +715,10 @@
   }
   // Applied to the lights for this frame: dimmed by the intro, key lights gliding in.
   function introLights(ls) {
-    if (intro.e >= 1) return ls;
+    if (intro.glide >= 1) return ls;
     const [ax, ay] = aimPoint();
-    const k = 0.08 + 0.92 * intro.e;
     return ls.map(l => {
-      const out = { ...l, col: l.col.map(c => c * k) };
+      const out = { ...l };
       if (l.dir) {                              // key light: from high above the card
         const from = [ax, ay - innerHeight * 0.7, l.pos[2] * 1.5];
         out.pos = l.pos.map((v, i) => from[i] + (v - from[i]) * intro.glide);
@@ -826,8 +828,8 @@
     gl.uniform4fv(U.uGlint, settings.extreme ? [4.5, 0.5, 40, 30] : [2.5, 0.84, 160, 6]);
     gl.uniform1f(U.uTime, time);
     const ls = introLights(lights(time).slice(0, MAX_LIGHTS));
-    gl.uniform3fv(U.uAmbient, scene.ambient.map(c => c * settings.fill * (0.25 + 0.75 * intro.e)));
-    gl.uniform3fv(U.uEnv, scene.env.map(c => c * (0.4 + 0.6 * intro.e)));
+    gl.uniform3fv(U.uAmbient, scene.ambient.map(c => c * settings.fill));
+    gl.uniform3fv(U.uEnv, scene.env);
     gl.uniform1i(U.uLightCount, ls.length);
     gl.uniform3fv(U["uLightPos[0]"], ls.flatMap(l => [l.pos[0] * dpr, l.pos[1] * dpr, l.pos[2] * dpr]));
     gl.uniform3fv(U["uLightCol[0]"], ls.flatMap(l => l.col));
