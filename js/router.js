@@ -9,7 +9,7 @@
 // No route means the site itself, which is the live-lit version. Without JavaScript
 // (or WebGL2) every route is just the static page.
 //
-// Adding a route (an easter egg, say): add it to ROUTES, list it in
+// Adding a route: add it to ROUTES, list it in
 // scripts/build_routes.py if it should have its own URL, and run that script.
 (() => {
   "use strict";
