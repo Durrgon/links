@@ -17,6 +17,7 @@ Options (all optional):
     --runes gold|silver|bronze|copper|iron|red   rune material (default gold)
     --rune-height 1.0             raised runes > 0, carved-in runes < 0
     --rune-roughness 0.45         metal roughness (default per metal; rougher reads brighter small)
+    --gold-edges                  the band's edge lines as raised metal too (not carved grooves)
     --stone slate|granite|sandstone|basalt|blackslate   stone colours (default slate)
     --hdri studio|forest|city|courtyard|interior|night|sunrise|sunset (default studio)
     --sun-azimuth 135             degrees, 0 = from the right, 90 = from the top
@@ -59,6 +60,8 @@ def parse_args():
     p.add_argument("--runes", default="gold", choices=list(METALS))
     p.add_argument("--rune-height", type=float, default=1.0)
     p.add_argument("--rune-roughness", type=float, help="override the metal's roughness (rougher = brighter when small)")
+    p.add_argument("--gold-edges", action="store_true",
+                   help="the band's edge lines as raised metal like the runes, not carved grooves")
     p.add_argument("--stone", default="slate", choices=list(STONES))
     p.add_argument("--hdri", default="studio")
     p.add_argument("--sun-azimuth", type=float, default=135)
@@ -114,6 +117,14 @@ def build_material(args):
     uv.location = (-1400, 0)
     get = lambda name, y: mask(nodes, links, uv, os.path.join(masks, f"{args.variant}-{name}.png"), -1100, y)
     shape, lines, runes = get("shape", 400), get("lines", 0), get("runes", -400)
+    if args.gold_edges:
+        # <variant>-edges.png (the band's edge lines without the grooves round the runes); the
+        # ring and serpent have no rune grooves, so their lines mask is all edges
+        name = "edges" if os.path.exists(os.path.join(masks, f"{args.variant}-edges.png")) else "lines"
+        edges = get(name, 800)
+        runes = math_node(nodes, links, "MAXIMUM", runes, edges, -950, -500)          # edges are metal
+        lines = math_node(nodes, links, "MULTIPLY", lines,
+                          math_node(nodes, links, "SUBTRACT", 1.0, edges, -950, 650), -850, 600)   # not grooves
 
     # Stone: two-tone grain, plus a little of it as surface relief. A <variant>-grain.png
     # (the border has one, stitched so its repeats join up) replaces Blender's noise.

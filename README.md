@@ -23,7 +23,8 @@ Lit render in Blender (Steam install), e.g. gold runes on slate:
 Options: `--variant plain|head`, `--runes gold|silver|bronze|copper|iron|red`,
 `--rune-height` (negative = carved in), `--stone slate|granite|sandstone|basalt`,
 `--hdri studio|forest|city|courtyard|interior|night|sunrise|sunset`,
-`--sun-azimuth`, `--sun-elevation`, `--sun-strength`, `--size`, `--samples`, `--out`.
+`--sun-azimuth`, `--sun-elevation`, `--sun-strength`, `--size`, `--samples`, `--out`,
+`--gold-edges` (the band's edge lines as raised metal, as the page uses).
 Renders go to `art/renders/` (not committed) with a transparent background.
 
 ## Rune border

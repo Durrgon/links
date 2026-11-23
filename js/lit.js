@@ -50,7 +50,7 @@
     bump: 1.6,
     sparkle: 1.0,              // glints on the metal
     extreme: true,             // big, frequent, bright glints
-    goldEdges: false,          // the band's edge lines as raised gold inlay instead of grooves
+    goldEdges: true,           // the band's edge lines as raised gold inlay instead of grooves
     cursor: true,              // the mouse is a small light near the frame
     tilt: false,               // WASD tilts the card (debugging)
   };
