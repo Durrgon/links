@@ -4,21 +4,24 @@
 //   1. <meta name="route" content="..."> in the page: the real URLs, e.g. /links/lit/,
 //      whose folders scripts/build_routes.py generates from index.html (with
 //      <base href="../"> so every asset path still works);
-//   2. a word in the hash or query: #lit, ?lit (older links). Other words are flags
-//      (e.g. #lit&panel), available as route.flags.
-// Without JavaScript nothing here runs and every route is just the static page.
+//   2. a word in the hash or query: #static, #lit, ?lit (older links). Other words are
+//      flags (e.g. #panel), available as route.flags.
+// No route means the site itself, which is the live-lit version. Without JavaScript
+// (or WebGL2) every route is just the static page.
 //
 // Adding a route (an easter egg, say): add it to ROUTES, list it in
 // scripts/build_routes.py if it should have its own URL, and run that script.
 (() => {
   "use strict";
+  const LIT = {
+    scripts: ["js/lit.js"],
+    preload: [["js/lit.js", "script"], ["images/lit/border.png", "image"], ["images/lit/ring.png", "image"]],
+    pending: "lit-pending",   // hides the static ring and border until js/lit.js has started
+  };
   const ROUTES = {
-    "": {},
-    lit: {
-      scripts: ["js/lit.js"],
-      preload: [["js/lit.js", "script"], ["images/lit/border.png", "image"], ["images/lit/ring.png", "image"]],
-      pending: "lit-pending",   // hides the static ring and border until js/lit.js has started
-    },
+    "": LIT,                    // the site itself (/links/) is the live-lit version
+    lit: LIT,                   // older /lit/, #lit, ?lit links
+    static: {},                 // /static/ or #static: the plain page, no live lighting
   };
 
   const html = document.documentElement;
@@ -27,7 +30,8 @@
     .split(/[&+/]/).map(w => decodeURIComponent(w.split("=")[0])).filter(Boolean);
   const name = meta ? meta.content : words.find(w => w && w in ROUTES) || "";
   const config = ROUTES[name] || ROUTES[""];
-  window.route = { name, flags: new Set(words), home: new URL("./", document.baseURI).href };
+  const home = new URL("./", document.baseURI).href;
+  window.route = { name, flags: new Set(words), home, staticUrl: home + "static/" };
 
   // The card stays hidden (space kept) until what it shows has loaded, so it appears
   // complete in one go; a route with "pending" shows it itself once it has started.

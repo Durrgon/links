@@ -42,8 +42,10 @@ top strip to all four sides so their lighting matches. `art/border-playground.ht
 ## Routes
 
 `js/router.js` (loaded in `<head>`) picks the page's route: from
-`<meta name="route">` in generated route folders (`/lit/`), or a word in the hash or
-query (`#lit`, `?lit`); other words are flags (`/lit/#panel` opens the lighting panel).
+`<meta name="route">` in generated route folders (`/static/`, `/lit/`), or a word in the
+hash or query (`#static`, `#lit`, `?lit`); other words are flags (`#panel` opens the
+lighting panel). The site itself (`/links/`) is the live-lit version; `/static/` is the
+plain page, which is also what everyone gets without JavaScript or WebGL2.
 Routes and the scripts they load are listed in `ROUTES` there. Without JavaScript
 every route is the static page.
 

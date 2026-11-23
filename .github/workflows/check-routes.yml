@@ -4,9 +4,9 @@ name: Check route pages
 # scripts/build_routes.py; fail if someone edited index.html without regenerating them.
 on:
   push:
-    paths: ["index.html", "lit/**", "scripts/build_routes.py"]
+    paths: ["index.html", "lit/**", "static/**", "scripts/build_routes.py"]
   pull_request:
-    paths: ["index.html", "lit/**", "scripts/build_routes.py"]
+    paths: ["index.html", "lit/**", "static/**", "scripts/build_routes.py"]
 
 jobs:
   check:

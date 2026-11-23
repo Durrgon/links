@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ROUTES = ["lit"]          # also add the route to ROUTES in js/router.js
+ROUTES = ["static", "lit"]   # also add the route to ROUTES in js/router.js
 
 
 def page_for(route, index):

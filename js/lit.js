@@ -1,5 +1,5 @@
-// Live-lit avatar ring and rune border (experimental; js/router.js loads it for the "lit"
-// route: /lit/, or #lit / ?lit).
+// Live-lit avatar ring and rune border. js/router.js loads it for the site itself (/links/)
+// and the older /lit/ route; /static/ is the plain page.
 //
 // A WebGL2 canvas over the page draws the ring and the card's rune border from packed
 // masks (images/lit/*.png: R runes, G carved lines, A shape; see scripts/make_lit_maps.py)
@@ -914,7 +914,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       select("Border stone", settings.border.stone, Object.keys(STONES), "border.stone") +
       `<small>Shift+click: aim · Alt+click: pin light · WASD: tilt (if on) · R: untilt · L: hide</small>` +
       `<div class="lit-buttons"><button type="button" data-reset>Reset aim</button><button type="button" data-replay>Replay intro</button>` +
-      `<a href="${window.route ? window.route.home : "./"}">Static version</a></div>`;
+      `<a href="${window.route ? window.route.staticUrl : "static/"}">Static version</a></div>`;
     p.addEventListener("input", e => {
       const key = e.target.dataset.set;
       if (!key) return;
