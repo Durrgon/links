@@ -127,7 +127,7 @@
   const canvas = document.createElement("canvas");
   canvas.setAttribute("aria-hidden", "true");
   canvas.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:10;" +
-    "opacity:0";
+    "opacity:0;transition:opacity 90ms ease-out";   // fades in with the card (css/main.css)
   const gl = canvas.getContext("webgl2", { premultipliedAlpha: true, antialias: false });
   const giveUp = () => document.documentElement.classList.remove("lit-pending", "loading");   // static stays
   let revealed = false, pageReady = !window.pageReady;

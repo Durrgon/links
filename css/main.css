@@ -167,5 +167,11 @@ html.lit-pending .--site-main .--container-component.--instance-container02 {
 /* Until its contents have loaded (see the script in index.html's head), the card is hidden
    with its space kept, so it appears complete in one go */
 html.loading .--site-main .--container-component.--instance-container02 {
-    visibility: hidden
+    visibility: hidden;
+    opacity: 0
+}
+
+/* ...then fades in quickly, as one piece (the ?lit canvas fades with it) */
+.--site-main .--container-component.--instance-container02 {
+    transition: opacity 90ms ease-out
 }
