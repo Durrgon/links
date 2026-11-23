@@ -38,3 +38,16 @@ at it to use it. The page's border is the Blender render `images/rune-border.web
 `python scripts/make_rune_border.py --finish <render.png> <out.webp>`, which copies the
 top strip to all four sides so their lighting matches. `art/border-playground.html` shows zoomed strips of each variant in
 `art/border-variants/`, with sliders.
+
+## Routes
+
+`js/router.js` (loaded in `<head>`) picks the page's route: from
+`<meta name="route">` in generated route folders (`/lit/`), or a word in the hash or
+query (`#lit`, `?lit`); other words are flags (`/lit/#panel` opens the lighting panel).
+Routes and the scripts they load are listed in `ROUTES` there. Without JavaScript
+every route is the static page.
+
+Route folders are copies of `index.html` with `<base href="../">`; after editing
+`index.html` run `python scripts/build_routes.py` (a GitHub check fails if you forget).
+To add a route with its own URL, add it to `ROUTES` in both `js/router.js` and
+`scripts/build_routes.py`. Fully separate pages can simply be their own folders.

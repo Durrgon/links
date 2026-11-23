@@ -1,0 +1,17 @@
+name: Check route pages
+
+# The route folders (lit/index.html, ...) are generated from index.html by
+# scripts/build_routes.py; fail if someone edited index.html without regenerating them.
+on:
+  push:
+    paths: ["index.html", "lit/**", "scripts/build_routes.py"]
+  pull_request:
+    paths: ["index.html", "lit/**", "scripts/build_routes.py"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/build_routes.py --check

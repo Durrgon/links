@@ -1,4 +1,5 @@
-// Live-lit avatar ring and rune border (experimental; the page loads this only with ?lit).
+// Live-lit avatar ring and rune border (experimental; js/router.js loads it for the "lit"
+// route: /lit/, or #lit / ?lit).
 //
 // A WebGL2 canvas over the page draws the ring and the card's rune border from packed
 // masks (images/lit/*.png: R runes, G carved lines, A shape; see scripts/make_lit_maps.py)
@@ -913,7 +914,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       select("Border stone", settings.border.stone, Object.keys(STONES), "border.stone") +
       `<small>Shift+click: aim · Alt+click: pin light · WASD: tilt (if on) · R: untilt · L: hide</small>` +
       `<div class="lit-buttons"><button type="button" data-reset>Reset aim</button><button type="button" data-replay>Replay intro</button>` +
-      `<a href="${location.pathname}">Static version</a></div>`;
+      `<a href="${window.route ? window.route.home : "./"}">Static version</a></div>`;
     p.addEventListener("input", e => {
       const key = e.target.dataset.set;
       if (!key) return;
@@ -954,8 +955,8 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       html.lit .avatar-ring { visibility: hidden }
       html.lit .--site-main .--container-component.--instance-container02 { border-image: none !important }`;
     document.head.append(style);
-    // Hidden unless the URL has "panel" (?lit&panel); L shows/hides it.
-    p.hidden = !/[?&]panel(=|&|$)/.test(location.search);
+    // Hidden unless the URL has the "panel" flag (/lit/#panel, ?lit&panel); L shows/hides it.
+    p.hidden = !(window.route ? window.route.flags.has("panel") : /[?&#]panel/.test(location.href));
     addEventListener("keydown", e => {
       if (e.key.toLowerCase() !== "l" || e.ctrlKey || e.metaKey || e.altKey) return;
       if (/^(input|select|textarea)$/i.test(e.target.tagName) || e.target.isContentEditable) return;
