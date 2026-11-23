@@ -539,9 +539,9 @@
                    performance.now() - (pointer.moved || -1e9) < 1500;
     cursorGlow.level += ((active ? 1 : 0) - cursorGlow.level) * (1 - Math.exp(-dt * (active ? 8 : 2)));
     if (cursorGlow.level < 0.01) return null;
-    const k = 0.9 * cursorGlow.level * settings.strength;
+    const k = 1.05 * cursorGlow.level * settings.strength;   // a little brighter: smaller pool
     return { pos: [pointer.x, pointer.y, 150], col: [1.1 * k, 1.05 * k, 0.95 * k], dir: [0, 0, -1],
-             cone: [Math.cos(55 * Math.PI / 180), Math.cos(15 * Math.PI / 180)] };
+             cone: [Math.cos(36 * Math.PI / 180), Math.cos(6 * Math.PI / 180)] };   // ~105 px pool, soft edge
   }
 
   const AMBIENT = [0.35, 0.36, 0.42];
