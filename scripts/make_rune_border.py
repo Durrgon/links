@@ -53,7 +53,7 @@ DOT_R = 1.4
 #       element with id="guide" is ignored). .psd / .png: an image with that same framing, e.g.
 #       one exported with --psd.
 ART = Path(__file__).resolve().parent.parent / "art"
-BIND_RUNE_FILE = ART / "bind-rune.svg"     # or ART / "bind-rune.psd"
+BIND_RUNE_FILE = ART / "bind-rune.psd"     # edited in Photoshop; or ART / "bind-rune.svg"
 BIND_RUNE_HEIGHT = 12     # rune box height: the same as the runes (12)
 MARK_RIM = 0.7             # web SVG: dark rim round the gold
 MARK_OUTLINE = RUNE_GROOVE # masks: carved groove round the mark
