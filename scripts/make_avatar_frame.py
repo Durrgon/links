@@ -1,10 +1,11 @@
 """Draw images/avatar-frame.svg: a runestone-style serpent band around the avatar.
 
-A stone band circles the avatar with a runic inscription carved along it. It
-starts as a tapering tail and ends in a serpent head, like the rune bands on
-Viking-age runestones. Runes are drawn as lines, so no runic font is needed.
+A stone band circles the avatar with a red runic inscription carved along it,
+and the serpent's head (after the Urnes-style beasts on Viking-age runestones)
+bites its own tapering tail at the top. Runes are drawn as lines, so no runic
+font is needed.
 
-Usage: python scripts/make_avatar_frame.py
+Usage: python scripts/make_avatar_frame.py   (prints the avatar size for css/main.css)
 """
 import math
 from pathlib import Path
@@ -13,15 +14,15 @@ OUT = Path(__file__).resolve().parent.parent / "images" / "avatar-frame.svg"
 
 SIZE = 200                 # drawing area, centred on (C, C)
 C = SIZE / 2
-PAD = 10                   # margin so the head and the shadow are not cut off
+PAD = 16                   # margin so the head, lappet and shadow are never cut off
 R_OUT, R_IN = 97, 71       # band edges; the avatar shows inside R_IN
 R_MID = (R_OUT + R_IN) / 2
 BAND = R_OUT - R_IN
-START, END = 307, 593      # band runs clockwise from START (tail) to END (head); 270 = top
 
-INK = "#26262a"            # carved outline, head details
+INK = "#26262a"            # carved outlines and head details
 RUNE = "#c0281f"           # runes and word dividers, painted red like the old stones
-STONE = "#68717c"          # slate, before the grain darkens it
+STONE = "#a7adb4"          # light slate, before the grain darkens it a little
+LINE = 1.6                 # outline width
 TEXT = "ᚾᚨᛏᛏᚠᛟᛞᛞ:ᛞᚱᚨᚲᛟᚾ:ᚾᚨᛏᛏᚠᛟᛞᛞ:ᛞᚱᚨᚲᛟᚾ"
 
 # Elder Futhark letters as strokes in a 6 x 12 box (x right, y down); ":" is a word divider.
@@ -36,26 +37,38 @@ RUNES = {
     "ᚲ": "M5,2L1,6L5,10",
 }
 
-# Serpent head at END, pointing clockwise (local +x); the band is y in [-13, 13], -y outward.
-# Drawn after the beast heads on Urnes/Ringerike-style runestones: almond eye,
-# open jaws with curled tips, and a lappet streaming back over the neck.
-HEAD = ("M0,-13 C8,-13.4 16,-17 26,-16.5 C35,-16 42,-11 48,-7 L53,-5 "    # brow and upper snout
-        "C57,-4 58,0 54,0.5 L43,1 L31,2.5 "                                  # snout tip, upper lip into the mouth
-        "L43,5 L49,6.5 C53,7.5 53.5,11.5 49.5,11.5 "                         # lower jaw out to its curled tip
-        "C41,11 31,11.5 21,12.4 C12,13 6,13 0,13")                           # throat back to the band
-HEAD_DETAIL = [
-    "M51,-5.8 C55,-7 56.5,-10.5 54,-11.3 C52,-12 50.6,-9.8 52.2,-8.8",       # snout curling up
-    "M21,-1 C17,2 16,6.5 18.5,11.5",  # cheek
-    "M2,-13 C4,-6 4,6 2,13",          # collar where the neck meets the band
-    "M6,-13.4 C8,-6 8,6 6,13",
+# Local coords for head and tail: +x runs clockwise along the band, the band is
+# y in [-13, 13], and -y points outward.
+
+# Head, at END, pointing clockwise. Urnes-style: long upper jaw ending in a rolled
+# lip, short lower jaw, big almond eye with a trailing line, a spiral on the cheek,
+# and a lappet ribbon that loops back from the crown and crosses over the band.
+HEAD = ("M0,-13 C8,-14 14,-18 24,-18 C32,-18 38,-15 44,-11 L58,-6.5 "        # crown and upper jaw
+        "C62,-5 62.5,0.5 58,0 L46,-1 L32,1 "                                 # rolled lip, into the mouth
+        "L44,4.5 L52,6 C55.5,7 55.5,11 51,11 "                               # lower jaw and its tip
+        "C42,11 30,12 20,12.6 C12,13.2 6,13 0,13")                           # throat back to the band
+HEAD_LINES = [
+    "M57,-6.6 C61,-9.5 60.5,-14.5 56.5,-14 C53.5,-13.6 54,-10.6 56,-10.6",  # lip curling up
+    "M20,-10 L13,-9",                                                     # eye's trailing line
+    "M25,-2.5 C20.5,0 19.5,5.5 22.5,8 C25,9.8 28,7.8 26.5,5.5",            # cheek spiral
+    "M2,-13 C4,-6 4,6 2,13",                                              # collar
+    "M6,-13.3 C8,-6 8,6 6,13",
 ]
-EYE = "M21,-8.5 C25,-12 31,-11.5 34,-8.5 C30,-6.5 25,-6.5 21,-8.5 Z"     # almond, pointed fore and aft
-PUPIL = (29.5, -8.6)
-# Lappet: a ribbon from the back of the head curling back over the neck (drawn as a
-# stone ribbon with carved edges, like the bands on the stones).
-LAPPET = "M15,-16.6 C9,-23.5 -3,-25 -11,-20.5 C-17,-17 -14.5,-11.5 -10,-12.8 C-7,-13.8 -7.8,-17 -10.5,-16.6"
-# Tapering tail at START, pointing back (local -x).
-TAIL = "M0,-13 C-10,-13 -20,-9 -28,-1 C-30,1 -29,3 -26,2 C-18,2 -8,13 0,13"
+EYE = "M20,-10 C25,-14.5 33,-14 37,-10 C32,-7.5 25,-7.5 20,-10 Z"
+PUPIL = (31, -10.4)
+LAPPET = ("M14,-16 C8,-27 -8,-29 -16,-21 C-22,-14 -21,4 -14,14 "
+          "C-11,19 -5.5,20 -5,16 C-4.6,13 -8,12.6 -8.5,15")
+RIBBON_OUT, RIBBON_IN = 5.4, 2.2   # ribbon = wide ink line with a narrower stone line on top
+
+# Tail, at START, tapering back (local -x) into the head's mouth.
+TAIL = "M0,-13 C-10,-12 -20,-8 -28,-3 C-30.5,-1.5 -30.5,1.5 -28,3 C-20,8 -10,12 0,13"
+TAIL_LEN = 30
+BITE_AT = 40               # the tail tip sits this far along the head, between the jaws
+BITE_ANGLE = 270           # where the bite happens; 270 = top
+
+UNIT = 180 / (math.pi * R_MID)          # degrees per local unit along the band
+END = BITE_ANGLE - BITE_AT * UNIT + 360  # head starts BITE_AT before the bite point
+START = BITE_ANGLE + TAIL_LEN * UNIT     # tail reaches back to the bite point
 
 
 def polar(r, deg):
@@ -71,13 +84,13 @@ def long_arc(r, a0, a1):
 
 
 def place(deg, r=R_MID):
-    """Transform for local coords at angle deg: +x runs clockwise along the band, -y points outward."""
+    """Transform for local coords at angle deg."""
     x, y = polar(r, deg)
     return f"translate({x:.2f},{y:.2f}) rotate({deg + 90:.2f})"
 
 
 def runes():
-    first, last = START + 13, END - 15   # keep clear of the tail and head
+    first, last = START + 12, END - 17   # keep clear of the tail and the lappet
     step = (last - first) / (len(TEXT) - 1)
     out = []
     for i, ch in enumerate(TEXT):
@@ -90,54 +103,57 @@ def runes():
     return "\n    ".join(out)
 
 
+def grain_filter(fid, shadow):
+    # userSpaceOnUse over the whole drawing, so the effect never clips the shapes
+    # (a bounding-box region leaves out stroke widths and cuts off the band's edges).
+    region = (f'filterUnits="userSpaceOnUse" x="{-PAD}" y="{-PAD}" '
+              f'width="{SIZE + 2 * PAD}" height="{SIZE + 2 * PAD}"')
+    funcs = "".join(f'<feFunc{c} type="linear" slope="0.35" intercept="0.75"/>' for c in "RGB")
+    drop = ('\n      <feDropShadow dx="0" dy="1.2" stdDeviation="1.4" flood-color="#000" flood-opacity="0.45"/>'
+            if shadow else "")
+    return f"""<filter id="{fid}" {region} color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="7" result="noise"/>
+      <feColorMatrix in="noise" type="saturate" values="0" result="grey"/>
+      <feComponentTransfer in="grey" result="grain">{funcs}<feFuncA type="linear" slope="0" intercept="1"/></feComponentTransfer>
+      <feBlend in="SourceGraphic" in2="grain" mode="multiply" result="textured"/>
+      <feComposite in="textured" in2="SourceGraphic" operator="in"/>{drop}
+    </filter>"""
+
+
 def svg():
     head, tail = place(END), place(START)
     band = long_arc(R_MID, START, END)
     edges = long_arc(R_OUT, START, END) + " " + long_arc(R_IN, START, END)
-    details = "".join(f'<path d="{d}"/>' for d in HEAD_DETAIL)
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="{-PAD} {-PAD} {SIZE + 2 * PAD} {SIZE + 2 * PAD}">
+    lines = "".join(f'<path d="{d}"/>' for d in HEAD_LINES)
+    full = SIZE + 2 * PAD
+    ink = f'fill="none" stroke="{INK}" stroke-width="{LINE}" stroke-linecap="round" stroke-linejoin="round"'
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="{-PAD} {-PAD} {full} {full}">
   <!-- Generated by scripts/make_avatar_frame.py: edit that, then rerun it. -->
   <defs>
-    <filter id="stone" x="-5%" y="-5%" width="110%" height="110%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="7" result="noise"/>
-      <feColorMatrix in="noise" type="saturate" values="0" result="grey"/>
-      <feComponentTransfer in="grey" result="grain">
-        <feFuncR type="linear" slope="0.45" intercept="0.68"/>
-        <feFuncG type="linear" slope="0.45" intercept="0.68"/>
-        <feFuncB type="linear" slope="0.45" intercept="0.68"/>
-        <feFuncA type="linear" slope="0" intercept="1"/>
-      </feComponentTransfer>
-      <feBlend in="SourceGraphic" in2="grain" mode="multiply" result="textured"/>
-      <feComposite in="textured" in2="SourceGraphic" operator="in" result="stone"/>
-      <feDropShadow in="stone" dx="0" dy="1.5" stdDeviation="1.6" flood-color="#000" flood-opacity="0.5"/>
-    </filter>
-    <filter id="grain" x="-10%" y="-10%" width="120%" height="120%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="7" result="noise"/>
-      <feColorMatrix in="noise" type="saturate" values="0" result="grey"/>
-      <feComponentTransfer in="grey" result="grain">
-        <feFuncR type="linear" slope="0.45" intercept="0.68"/>
-        <feFuncG type="linear" slope="0.45" intercept="0.68"/>
-        <feFuncB type="linear" slope="0.45" intercept="0.68"/>
-        <feFuncA type="linear" slope="0" intercept="1"/>
-      </feComponentTransfer>
-      <feBlend in="SourceGraphic" in2="grain" mode="multiply" result="textured"/>
-      <feComposite in="textured" in2="SourceGraphic" operator="in"/>
-    </filter>
+    {grain_filter("stone", shadow=True)}
+    {grain_filter("grain", shadow=False)}
   </defs>
+  <!-- band and tail, under the head -->
   <g filter="url(#stone)" fill="{STONE}">
-    <path d="{band}" fill="none" stroke="{STONE}" stroke-width="{BAND - 0.8}"/>
-    <path transform="{head}" d="M-2,-12.6 L0,-12.6 {HEAD[7:]} L-2,12.6Z"/>
-    <path transform="{tail}" d="M2,-12.6 L0,-12.6 {TAIL[7:]} L2,12.6Z"/>
+    <path d="{band}" fill="none" stroke="{STONE}" stroke-width="{BAND - LINE / 2}"/>
+    <g transform="{tail}"><path d="M0.4,-12.6 {TAIL[7:]} L0.4,12.6Z"/></g>
   </g>
-  <g transform="{head}" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <path d="{LAPPET}" stroke="{INK}" stroke-width="5.4"/>
-    <path d="{LAPPET}" stroke="{STONE}" stroke-width="2.2" filter="url(#grain)"/>
-  </g>
-  <g fill="none" stroke="{INK}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <g {ink}>
     <path d="{edges}"/>
-    <g transform="{head}"><path d="{HEAD}"/>{details}<path d="{EYE}"/><circle cx="{PUPIL[0]}" cy="{PUPIL[1]}" r="1.1" fill="{INK}"/></g>
-    <path transform="{tail}" d="{TAIL}"/>
+    <g transform="{tail}"><path d="{TAIL}"/></g>
     {runes()}
+  </g>
+  <!-- head on top, its jaws around the tail -->
+  <g filter="url(#stone)" fill="{STONE}">
+    <g transform="{head}"><path d="M-0.4,-12.6 {HEAD[7:]} L-0.4,12.6Z"/></g>
+  </g>
+  <g {ink}>
+    <g transform="{head}"><path d="{HEAD}"/>{lines}<path d="{EYE}"/><circle cx="{PUPIL[0]}" cy="{PUPIL[1]}" r="1.3" fill="{INK}" stroke="none"/></g>
+  </g>
+  <!-- lappet ribbon looping back over the band -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g transform="{head}"><path d="{LAPPET}" stroke="{INK}" stroke-width="{RIBBON_OUT}"/></g>
+    <g filter="url(#grain)"><g transform="{head}"><path d="{LAPPET}" stroke="{STONE}" stroke-width="{RIBBON_IN}"/></g></g>
   </g>
 </svg>
 """
@@ -147,4 +163,5 @@ if __name__ == "__main__":
     OUT.write_text(svg(), encoding="utf-8")
     full = SIZE + 2 * PAD
     print("Wrote", OUT)
-    print(f"In CSS, the avatar is {2 * R_IN / full:.2%} of the frame, inset {(full / 2 - R_IN) / full:.2%}")
+    print(f"For css/main.css: .avatar-frame {{ width/height {9.625 * full / 220:.3f}rem }}, "
+          f".avatar {{ left/top {(full / 2 - R_IN) / full:.2%}, width/height {2 * R_IN / full:.2%} }}")

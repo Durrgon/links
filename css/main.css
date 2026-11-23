@@ -103,8 +103,8 @@ a:focus-visible {
     left: 50%;
     bottom: 0;
     transform: translate(-50%, 50%);
-    width: 9.625rem;
-    height: 9.625rem;
+    width: 10.15rem;
+    height: 10.15rem;
     z-index: 2
 }
 
@@ -115,10 +115,10 @@ a:focus-visible {
 }
 
 .avatar {
-    left: 17.73%;
-    top: 17.73%;
-    width: 64.55%;
-    height: 64.55%;
+    left: 19.4%;
+    top: 19.4%;
+    width: 61.21%;
+    height: 61.21%;
     border-radius: 50%;
     background: rgb(56, 57, 71);
     object-fit: cover
