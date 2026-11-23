@@ -35,7 +35,8 @@
     ring: { stone: "slate", metal: "gold" },
     border: { stone: "blackslate", metal: "silver" },
     light: "video",            // video | pointer | orbit
-    scene: "day",              // day | night (video mode)
+    scene: "auto",             // auto (viewer's local time) | day | sunset | night | custom
+    hour: 12,                  // custom: hour of the day, 0..24
     guides: false,
     from: "viewer",            // viewer: lights sit in front of the screen, tilted towards
                                //   their spot in the scene; scene: right over the spot
@@ -149,6 +150,7 @@
   uniform vec3 uAmbient;
   uniform vec3 uEnv;               // what the metal reflects
   uniform float uSparkle;          // strength of the glints on the metal
+  uniform vec3 uView;              // direction to the viewer, in the card's own frame
   uniform float uTime;
 
   // One axis of CSS border-image (round): returns source coord and its derivative per px.
@@ -219,7 +221,7 @@
       glintCell = point * twinkle;
       facet = normalize(n + vec3(hash(gcell + 7.1) - 0.5, hash(gcell + 3.7) - 0.5, 0.0) * 0.5);
     }
-    vec3 v = vec3(0.0, 0.0, 1.0);
+    vec3 v = uView;
     // Fill light, plus a stand-in for the sky the metal reflects (Blender used an HDRI):
     // bright where the surface faces the viewer, a little darker on the bevels.
     vec3 col = uAmbient * diffCol + uEnv * specCol * mix(0.45, 1.0, pow(n.z, 4.0));
@@ -258,53 +260,69 @@
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
   // =====================================================================================
-  // Night background: the video with its sky keyed out (separate canvas behind the card)
+  // Scene background: the video, graded towards golden hour and/or night, with its sky
+  // keyed out and replaced (separate canvas behind the card)
   // =====================================================================================
   const bg = document.createElement("canvas");
   bg.setAttribute("aria-hidden", "true");
-  bg.style.cssText = "position:fixed;pointer-events:none;z-index:0;display:none";
+  bg.style.cssText = "position:absolute;pointer-events:none;z-index:0;display:none";
   const bgl = bg.getContext("webgl2", { premultipliedAlpha: false, antialias: false });
   let BU = null, bgVideoTex = null, bgMaskTex = null, bgPosterUploaded = false;
   const moon = { u: 0.62, v: 0.08 };        // replaced from the sky mask once it loads
+  const sun = { u: 0.6, v: 0.35 };
+  let skyBottom = 0.45;
 
-  const NIGHT_FRAG = `#version 300 es
+  const SCENE_FRAG = `#version 300 es
   precision highp float;
   in vec2 vLocal;
   out vec4 outColor;
   uniform vec4 uRect;
   uniform sampler2D uVideo, uMask;
-  uniform vec2 uMoon;            // uv
+  uniform vec2 uMoon, uSun;      // uv
+  uniform float uSkyBottom;      // lowest v of the sky
+  uniform float uGolden, uNight; // scene weights, 0..1
   uniform float uTime, uAspect;
   float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  // Draws a sun or moon disc with a glow into sky; returns the glow (to spill on the ground).
+  vec3 body(vec2 uv, vec2 at, float radius, vec3 col, vec3 glowCol, float glowFall, inout vec3 sky) {
+    vec2 d = (uv - at) * vec2(uAspect, 1.0);
+    float r = length(d);
+    sky = mix(sky, col, smoothstep(radius, radius * 0.88, r));
+    vec3 glow = glowCol * exp(-r * glowFall);
+    sky += glow;
+    return glow;
+  }
   void main() {
     vec2 uv = vLocal / uRect.zw;
     vec3 day = texture(uVideo, uv).rgb;
     float sky = texture(uMask, uv).r;
-    // ground: darker, bluer, the bright snow kept a little brighter (moonlit)
     float lum = dot(day, vec3(0.299, 0.587, 0.114));
-    vec3 ground = mix(vec3(lum), day, 0.3) * vec3(0.30, 0.38, 0.62) * (0.35 + 0.5 * lum * lum);
-    // sky: dark gradient, stars, moon with a glow
-    vec3 night = mix(vec3(0.015, 0.02, 0.05), vec3(0.06, 0.09, 0.18), smoothstep(0.0, 0.55, uv.y));
+    float toHorizon = smoothstep(0.0, uSkyBottom, uv.y);     // 0 at the top, 1 at the horizon
+
+    // golden hour: warm, a bit darker ground; orange-to-violet sky; a low sun
+    vec3 goldGround = mix(vec3(lum), day, 0.75) * vec3(1.18, 0.86, 0.64) * 0.82;
+    vec3 goldSky = mix(vec3(0.30, 0.24, 0.48), vec3(1.0, 0.56, 0.26), pow(toHorizon, 1.6));
+    vec3 sunGlow = body(uv, uSun, 0.03, vec3(1.0, 0.86, 0.6), vec3(1.0, 0.6, 0.3) * 0.55, 9.0, goldSky);
+    vec3 golden = mix(goldGround + sunGlow * 0.25, goldSky, sky);
+
+    // night: darker, bluer ground (the snow kept a little brighter); stars and the moon
+    vec3 nightGround = mix(vec3(lum), day, 0.3) * vec3(0.30, 0.38, 0.62) * (0.35 + 0.5 * lum * lum);
+    vec3 nightSky = mix(vec3(0.015, 0.02, 0.05), vec3(0.06, 0.09, 0.18), smoothstep(0.0, 0.55, uv.y));
     vec2 grid = uv * vec2(220.0, 220.0 / uAspect);
-    vec2 cell = floor(grid);
-    float h = hash(cell);
-    float star = step(0.985, h) * smoothstep(0.35, 0.0, length(fract(grid) - 0.5))
-               * (0.6 + 0.4 * sin(uTime * 0.002 + h * 60.0));
-    night += vec3(star);
-    vec2 d = (uv - uMoon) * vec2(uAspect, 1.0);
-    float r = length(d);
-    float disc = smoothstep(0.028, 0.025, r);
-    vec3 moonCol = vec3(0.96, 0.95, 0.88) * (0.85 + 0.15 * smoothstep(0.03, 0.0, length(d - vec2(-0.006, -0.004))));
-    float glow = exp(-r * 18.0) * 0.35;
-    night = mix(night, moonCol, disc) + vec3(0.55, 0.62, 0.8) * glow;
-    vec3 col = mix(ground + vec3(0.35, 0.4, 0.55) * glow * 0.4, night, sky);
+    float h = hash(floor(grid));
+    nightSky += step(0.985, h) * smoothstep(0.35, 0.0, length(fract(grid) - 0.5))
+              * (0.6 + 0.4 * sin(uTime * 0.002 + h * 60.0));
+    vec3 moonGlow = body(uv, uMoon, 0.028, vec3(0.96, 0.95, 0.88), vec3(0.55, 0.62, 0.8) * 0.35, 18.0, nightSky);
+    vec3 night = mix(nightGround + moonGlow * 0.4, nightSky, sky);
+
+    vec3 col = mix(mix(day, golden, uGolden), night, uNight);
     outColor = vec4(col, 1.0);
   }`;
 
   function initNight(maskImg) {
     if (!bgl) return;
     try {
-      BU = program(bgl, QUAD_VERT, NIGHT_FRAG);
+      BU = program(bgl, QUAD_VERT, SCENE_FRAG);
     } catch (e) {
       console.warn("lit.js: night shader failed", e);
       return;
@@ -323,14 +341,23 @@
     for (let y = top; y < Math.min(c.height, top + c.height * 0.12); y++)
       for (let xx = 0; xx < c.width; xx++) if (d[(y * c.width + xx) * 4] > 230) { sx += xx; n++; }
     if (n) { moon.u = sx / n / c.width + 0.04; moon.v = top / c.height + 0.09; }
+    // sun (golden hour): low in the sky, just above the horizon (the sky's lowest point)
+    let bottom = 0, bx = 0;
+    for (let i = 0; i < c.width * c.height; i++) if (d[i * 4] > 230) {
+      const y = Math.floor(i / c.width);
+      if (y >= bottom) { bottom = y; bx = i % c.width; }
+    }
+    skyBottom = bottom / c.height;
+    sun.u = bx / c.width; sun.v = Math.max(moon.v + 0.05, skyBottom - 0.07);
     video.parentElement.append(bg);
   }
 
-  function drawNight(time) {
-    const on = settings.light === "video" && settings.scene === "night" && BU;
+  function drawScene(time) {
+    const on = settings.light === "video" && BU && (weights.golden > 0.004 || weights.night > 0.004);
     bg.style.display = on ? "block" : "none";
     if (!on) return;
-    const r = videoRect();
+    // laid over the video inside the same parent, so it moves with the background's tilt shift
+    const r = { left: video.offsetLeft, top: video.offsetTop, width: video.offsetWidth, height: video.offsetHeight };
     const dpr = Math.min(devicePixelRatio || 1, 2);
     Object.assign(bg.style, { left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px" });
     const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
@@ -352,9 +379,44 @@
     bgl.uniform4f(BU.uRect, 0, 0, w, h);
     bgl.uniform2f(BU.uCanvas, w, h);
     bgl.uniform2f(BU.uMoon, moon.u, moon.v);
+    bgl.uniform2f(BU.uSun, sun.u, sun.v);
+    bgl.uniform1f(BU.uSkyBottom, skyBottom);
+    bgl.uniform1f(BU.uGolden, weights.golden);
+    bgl.uniform1f(BU.uNight, weights.night);
     bgl.uniform1f(BU.uTime, time);
     bgl.uniform1f(BU.uAspect, r.width / r.height);
     bgl.drawArrays(bgl.TRIANGLE_STRIP, 0, 4);
+  }
+
+  // =====================================================================================
+  // Time of day: weights for golden hour and night
+  // =====================================================================================
+  // Fixed, simple times (no location or season): sunrise 06:30, sunset 19:00. Golden hour
+  // peaks there; night is fully in from about 21:00 to 05:00, fading in between.
+  const SUNRISE = 6.5, SUNSET = 19.0;
+  const SCENE_HOURS = { day: 13, sunset: SUNSET, night: 0 };
+  const weights = { golden: 0, night: 0 };
+  function sceneHour() {
+    if (settings.scene === "custom") return settings.hour;
+    if (settings.scene in SCENE_HOURS) return SCENE_HOURS[settings.scene];
+    const now = new Date();
+    return now.getHours() + now.getMinutes() / 60;
+  }
+  const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  function weightsAt(h) {
+    const night = 1 - smooth(SUNRISE - 1.5, SUNRISE + 0.5, h) + smooth(SUNSET + 0.25, SUNSET + 2, h);
+    const bell = (c, w) => Math.max(0, 1 - Math.abs(h - c) / w);
+    const golden = Math.min(1, 1.25 * Math.max(bell(SUNRISE, 1.4), bell(SUNSET, 1.6)));
+    return { night: Math.min(1, Math.max(0, night)), golden: smooth(0, 1, golden) };
+  }
+  let weightsAt_ = 0;
+  function updateWeights(time) {  // eased over ~2 s (by time, not frames), so switching cross-fades
+    const dt = Math.min(1, Math.max(0, (time - weightsAt_) / 1000));
+    weightsAt_ = time;
+    const a = 1 - Math.exp(-dt * 2.2);
+    const t = weightsAt(sceneHour());
+    weights.golden += (t.golden - weights.golden) * a;
+    weights.night += (t.night - weights.night) * a;
   }
 
   // =====================================================================================
@@ -367,6 +429,8 @@
   const ENV = [0.62, 0.64, 0.70];
   const NIGHT_TINT = [0.30, 0.38, 0.62];
   const MOON_COL = [0.80, 0.88, 1.15];
+  const SUN_COL = [1.30, 0.78, 0.45];
+  const GOLD_TINT = [1.18, 0.86, 0.64];
 
   // The video (or its poster on phones) shrunk to SX x SY, ~10 times a second.
   const GRID_X = 4, GRID_Y = 3, SX = 32, SY = 18;
@@ -438,7 +502,8 @@
 
   function aimPoint() {
     if (aim.x !== null) return [aim.x, aim.y];
-    const r = card ? card.getBoundingClientRect() : { left: 0, top: 0, width: innerWidth, height: innerHeight };
+    const r = card ? layout.get(card) || card.getBoundingClientRect()
+                   : { left: 0, top: 0, width: innerWidth, height: innerHeight };
     return [r.left + r.width / 2, r.top + r.height / 2];
   }
 
@@ -469,29 +534,32 @@
     if (settings.light === "video") {
       sampleScene(time);
       easeScene();
-      const night = settings.scene === "night";
+      const g = weights.golden, nt = weights.night, dy = Math.max(0, 1 - g - nt);
+      const mixCol = (c, k) => c * c * (dy + g * GOLD_TINT[k] * 0.85 + nt * NIGHT_TINT[k] * 0.35);
       const fillK = settings.strength * 1.6 / (GRID_X * GRID_Y);
       const out = scene.cells.map((c, i) => {
         const gx = i % GRID_X, gy = Math.floor(i / GRID_X);
         const [x, y] = uvToScreen((gx + 0.5) / GRID_X, (gy + 0.5) / GRID_Y);
-        const col = night ? c.map((v, k) => v * v * NIGHT_TINT[k] * 0.35) : c.map(v => v * v);
-        return { pos: place(x, y), col: col.map(v => v * fillK * 3) };
+        return { pos: place(x, y), col: c.map((v, k) => mixCol(v, k) * fillK * 3) };
       });
       const keyK = settings.strength * settings.key;
-      if (night) {
-        const [x, y] = pinned.x !== null ? [pinned.x, pinned.y] : uvToScreen(moon.u, moon.v);
+      // day: the two brightest spots of the video
+      if (dy > 0.01) scene.keys.forEach((k, i) => {
+        const [x, y] = i === 0 && pinned.x !== null ? [pinned.x, pinned.y] : uvToScreen(k.u, k.v);
         keySources.push([x, y]);
-        out.push(spot(x, y, MOON_COL.map(v => v * keyK * 1.1)));
-        scene.ambient = [0.07, 0.09, 0.16];
-        scene.env = [0.18, 0.22, 0.34];
-      } else {
-        scene.keys.forEach((k, i) => {
-          const [x, y] = i === 0 && pinned.x !== null ? [pinned.x, pinned.y] : uvToScreen(k.u, k.v);
-          keySources.push([x, y]);
-          const lum = 0.299 * k.col[0] + 0.587 * k.col[1] + 0.114 * k.col[2];
-          out.push(spot(x, y, k.col.map(v => (0.5 * v + 0.5 * lum) * keyK * (i ? 0.8 : 1.1))));
-        });
+        const lum = 0.299 * k.col[0] + 0.587 * k.col[1] + 0.114 * k.col[2];
+        out.push(spot(x, y, k.col.map(v => (0.5 * v + 0.5 * lum) * keyK * (i ? 0.8 : 1.1) * dy)));
+      });
+      // golden hour: the low sun; night: the moon
+      for (const [w, body, col] of [[g, sun, SUN_COL], [nt, moon, MOON_COL]]) {
+        if (w <= 0.01) continue;
+        const [x, y] = pinned.x !== null && dy <= 0.01 ? [pinned.x, pinned.y] : uvToScreen(body.u, body.v);
+        keySources.push([x, y]);
+        out.push(spot(x, y, col.map(v => v * keyK * 1.1 * w)));
       }
+      const blend = (dayV, goldV, nightV) => dayV.map((v, k) => v * dy + goldV[k] * g + nightV[k] * nt);
+      scene.ambient = blend(target.ambient, [0.32, 0.24, 0.22], [0.07, 0.09, 0.16]);
+      scene.env = blend(target.env, [0.62, 0.46, 0.36], [0.18, 0.22, 0.34]);
       return out;
     }
     ease(scene.ambient, AMBIENT, 0.08);
@@ -542,7 +610,7 @@
   // =====================================================================================
   // Drawing
   // =====================================================================================
-  let texBorder, texRing;
+  let texBorder, texRing, clock = null, clockAt = -1e9;
 
   function setMaterial(which) {
     const m = settings[which];
@@ -552,13 +620,78 @@
     gl.uniform1f(U.uMetalRough, m.metal === "red" ? 0.65 : 0.38);
   }
 
+  // Rects as laid out, without the tilt (the canvas gets the same tilt as the card).
+  const layout = new Map();
+  function measure() {
+    const t = card && card.style.transform;
+    if (t) card.style.transform = "none";
+    for (const el of [card, ring]) if (el) layout.set(el, el.getBoundingClientRect());
+    if (t) card.style.transform = t;
+  }
   function rectOf(el, dpr) {
-    const r = el.getBoundingClientRect();
+    const r = layout.get(el) || el.getBoundingClientRect();
     return [r.left * dpr, r.top * dpr, r.width * dpr, r.height * dpr];
   }
 
+  // =====================================================================================
+  // WASD tilt (debugging): tilts the card in 3D; the frame canvas gets the same transform,
+  // the shader the matching view direction, and the background shifts a little the other
+  // way. R resets.
+  // =====================================================================================
+  const tilt = { yaw: 0, pitch: 0 };
+  const held = new Set();
+  const siteBg = video && video.closest(".--site-bg");
+  addEventListener("keydown", e => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (/^(input|select|textarea)$/i.test(e.target.tagName) || e.target.isContentEditable) return;
+    const k = e.key.toLowerCase();
+    if ("wasd".includes(k) && k.length === 1) held.add(k);
+    if (k === "r") tilt.yaw = tilt.pitch = 0;
+  });
+  addEventListener("keyup", e => held.delete(e.key.toLowerCase()));
+  addEventListener("blur", () => held.clear());
+  let lastTime = 0;
+  function applyTilt(time) {
+    const dt = Math.min(0.25, Math.max(0, (time - lastTime) / 1000));
+    lastTime = time;
+    const rate = 30;                          // degrees per second
+    if (held.has("a")) tilt.yaw -= rate * dt;
+    if (held.has("d")) tilt.yaw += rate * dt;
+    if (held.has("w")) tilt.pitch += rate * dt;
+    if (held.has("s")) tilt.pitch -= rate * dt;
+    tilt.yaw = Math.max(-30, Math.min(30, tilt.yaw));
+    tilt.pitch = Math.max(-30, Math.min(30, tilt.pitch));
+    const on = tilt.yaw || tilt.pitch;
+    const transform = on ? `perspective(1400px) rotateX(${tilt.pitch}deg) rotateY(${tilt.yaw}deg)` : "";
+    if (card) card.style.transform = transform;
+    measure();
+    const r = card && layout.get(card);
+    canvas.style.transformOrigin = r ? `${r.left + r.width / 2}px ${r.top + r.height / 2}px` : "50% 50%";
+    canvas.style.transform = transform;
+    if (siteBg) {           // shift the background the other way, zoomed just enough to hide its edges
+      const dx = -tilt.yaw * 5, dy = tilt.pitch * 5;
+      const zoom = 1 + 2 * Math.max(Math.abs(dx) / innerWidth, Math.abs(dy) / innerHeight) + 0.01;
+      siteBg.style.transformOrigin = "50% 50%";
+      siteBg.style.transform = on ? `translate(${dx}px, ${dy}px) scale(${zoom.toFixed(4)})` : "";
+    }
+    // the viewer, seen from the card: the inverse of the card's rotation applied to (0, 0, 1)
+    const y = tilt.yaw * Math.PI / 180, x = tilt.pitch * Math.PI / 180;
+    const v = [-Math.sin(y), Math.sin(x) * Math.cos(y), Math.cos(x) * Math.cos(y)];
+    const len = Math.hypot(...v);
+    gl.uniform3f(U.uView, v[0] / len, v[1] / len, v[2] / len);
+  }
+
   function frame(time) {
-    drawNight(time);
+    applyTilt(time);
+    updateWeights(time);
+    drawScene(time);
+    if (clock && !clock.closest("[hidden]") && time - clockAt > 500) {
+      clockAt = time;
+      const h = sceneHour(), hh = Math.floor(h), mm = Math.round((h - hh) * 60);
+      clock.textContent = `Scene time ${String(hh).padStart(2, "0")}:${String(mm % 60).padStart(2, "0")}` +
+        ` · golden ${weights.golden.toFixed(2)} · night ${weights.night.toFixed(2)}` +
+        ` · tilt ${tilt.yaw.toFixed(0)}°, ${tilt.pitch.toFixed(0)}°`;
+    }
     const dpr = Math.min(devicePixelRatio || 1, 2);
     const w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
@@ -619,7 +752,9 @@
     p.innerHTML =
       `<strong>Live lighting</strong>` +
       select("Light", settings.light, ["video", "pointer", "orbit"], "light") +
-      select("Scene", settings.scene, ["day", "night"], "scene") +
+      select("Scene", settings.scene, ["auto", "day", "sunset", "night", "custom"], "scene") +
+      range("Hour (custom)", "hour", 0, 24, 0.25) +
+      `<small data-clock></small>` +
       select("Light from", settings.from, ["viewer", "scene"], "from") +
       range("Distance", "distance", 200, 3000, 50) +
       range("Spread", "spread", 0, 1, 0.05) +
@@ -634,7 +769,7 @@
       select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
       select("Border metal", settings.border.metal, Object.keys(METALS), "border.metal") +
       select("Border stone", settings.border.stone, Object.keys(STONES), "border.stone") +
-      `<small>Shift+click: aim · Alt+click: pin light · L: hide · <button type="button" data-reset>reset</button></small>` +
+      `<small>Shift+click: aim · Alt+click: pin light · WASD: tilt · R: untilt · L: hide · <button type="button" data-reset>reset</button></small>` +
       `<a href="${location.pathname}">Static version</a>`;
     p.addEventListener("input", e => {
       const key = e.target.dataset.set;
@@ -669,6 +804,7 @@
       p.hidden = !p.hidden;
     });
     document.body.append(p);
+    clock = p.querySelector("[data-clock]");
   }
 
   Promise.all([loadImage(BORDER.src), loadImage(RING.src)]).then(([b, r]) => {
