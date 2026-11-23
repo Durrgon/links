@@ -22,6 +22,24 @@
     <link rel=icon type=image/png href="images/favicon.png">
     <link rel=apple-touch-icon href="images/apple-touch-icon.png">
     <title>Nattfödd's Links</title>
+    <!-- found late otherwise (only referenced from the CSS): fetch them right away -->
+    <link rel="preload" href="fonts/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="images/rune-border.webp" as="image">
+    <!-- ?lit: hide the static ring and border from the start (the canvas fades in instead),
+         fetch the lighting script and textures early; show the static ones again after 3 s
+         if the lighting never started -->
+    <script>
+      if (/[?&]lit(=|&|$)/.test(location.search)) {
+        const html = document.documentElement;
+        html.classList.add("lit-pending");
+        for (const [href, as] of [["js/lit.js", "script"], ["images/lit/border.png", "image"], ["images/lit/ring.png", "image"]]) {
+          const l = document.createElement("link");
+          l.rel = "preload"; l.href = href; l.as = as;
+          document.head.append(l);
+        }
+        setTimeout(() => { if (!html.classList.contains("lit")) html.classList.remove("lit-pending"); }, 3000);
+      }
+    </script>
     <link rel="stylesheet" type="text/css" href="css/main.css" />
     <link rel="stylesheet" type="text/css" href="css/carrd-canvas.css" />
 </head>

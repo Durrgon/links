@@ -152,3 +152,14 @@ a:focus-visible {
 :root {
     --fit-vh: 1.5vh
 }
+
+/* ?lit: while the live lighting starts, hide the static ring and border so they don't
+   flash before the canvas replaces them (index.html removes this after 3 s if it never
+   starts) */
+html.lit-pending .avatar-ring {
+    visibility: hidden
+}
+
+html.lit-pending .--site-main .--container-component.--instance-container02 {
+    border-image: none
+}
