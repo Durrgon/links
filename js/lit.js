@@ -814,10 +814,11 @@
     if (clock && !clock.closest("[hidden]") && time - clockAt > 500) {
       clockAt = time;
       const h = shownHour ?? sceneHour(), hh = Math.floor(h), mm = Math.floor((h - hh) * 60);
-      clock.textContent = `Scene time ${String(hh).padStart(2, "0")}:${String(mm % 60).padStart(2, "0")}` +
+      clock.textContent = `${String(hh).padStart(2, "0")}:${String(mm % 60).padStart(2, "0")}` +
         ` · golden ${weights.golden.toFixed(2)} · night ${weights.night.toFixed(2)}` +
-        ` · tilt ${tilt.yaw.toFixed(0)}°, ${tilt.pitch.toFixed(0)}°` +
-        ` · sunrise ${fmt(sunTimes.rise)}, sunset ${fmt(sunTimes.set)} for ${sunTimes.where}`;
+        (settings.tilt ? ` · tilt ${tilt.yaw.toFixed(0)}°, ${tilt.pitch.toFixed(0)}°` : "") +
+        `
+Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     }
     const dpr = Math.min(devicePixelRatio || 1, 2);
     const w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
@@ -882,41 +883,49 @@
       return `<label for="${id}">${label}</label><select id="${id}" data-set="${set}">` +
         options.map(o => `<option value="${o}"${o === value ? " selected" : ""}>${nice(o)}</option>`).join("") + "</select>";
     };
-    const check = (label, set) =>
-      `<label for="lit-${set}">${label}</label><input id="lit-${set}" type="checkbox" data-set="${set}"${settings[set] ? " checked" : ""}>`;
+    const toggle = (label, set) =>
+      `<label class="lit-toggle"><input id="lit-${set}" type="checkbox" data-set="${set}"${settings[set] ? " checked" : ""}> ${label}</label>`;
+    // label | number box | slider; the box and the slider stay in step
     const range = (label, set, min, max, step) => {
-      const id = "lit-" + set;
-      return `<label for="${id}">${label}</label><input id="${id}" type="range" min="${min}" max="${max}" step="${step}" value="${settings[set]}" data-set="${set}">`;
+      const id = "lit-" + set, attrs = `min="${min}" max="${max}" step="${step}" value="${settings[set]}" data-set="${set}"`;
+      return `<label for="${id}">${label}</label><input type="number" ${attrs} aria-label="${label}">` +
+             `<input id="${id}" type="range" ${attrs}>`;
     };
     p.innerHTML =
       `<strong>Live lighting</strong>` +
       select("Light", settings.light, ["video", "pointer", "orbit"], "light") +
       select("Scene", settings.scene, ["auto", "day", "sunset", "night", "custom"], "scene") +
-      range("Hour (custom)", "hour", 0, 24, 0.25) +
+      range("Hour", "hour", 0, 24, 0.25) +
       `<small data-clock></small>` +
       select("Light from", settings.from, ["viewer", "scene"], "from") +
       range("Distance", "distance", 200, 3000, 50) +
       range("Spread", "spread", 0, 1, 0.05) +
-      check("Guides", "guides") +
-      check("WASD tilt", "tilt") +
       range("Height", "height", 60, 900, 10) +
       range("Strength", "strength", 0.2, 2.5, 0.05) +
       range("Key light", "key", 0, 3, 0.05) +
       range("Fill", "fill", 0, 2.5, 0.05) +
       range("Depth", "bump", 0, 6, 0.1) +
       range("Sparkle", "sparkle", 0, 10, 0.05) +
-      check("Extreme sparkle", "extreme") +
+      `<div class="lit-toggles">${toggle("Extreme sparkle", "extreme")}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
       select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
       select("Border metal", settings.border.metal, Object.keys(METALS), "border.metal") +
       select("Border stone", settings.border.stone, Object.keys(STONES), "border.stone") +
-      `<small>Shift+click: aim · Alt+click: pin light · WASD: tilt (if on) · R: untilt · L: hide · <button type="button" data-reset>reset</button> <button type="button" data-replay>replay intro</button></small>` +
-      `<a href="${location.pathname}">Static version</a>`;
+      `<small>Shift+click: aim · Alt+click: pin light · WASD: tilt (if on) · R: untilt · L: hide</small>` +
+      `<div class="lit-buttons"><button type="button" data-reset>Reset aim</button><button type="button" data-replay>Replay intro</button>` +
+      `<a href="${location.pathname}">Static version</a></div>`;
     p.addEventListener("input", e => {
       const key = e.target.dataset.set;
       if (!key) return;
-      const value = e.target.type === "range" ? parseFloat(e.target.value)
-                  : e.target.type === "checkbox" ? e.target.checked : e.target.value;
+      let value;
+      if (e.target.type === "range" || e.target.type === "number") {
+        value = parseFloat(e.target.value);
+        if (isNaN(value)) return;                      // half-typed number
+        value = Math.min(parseFloat(e.target.max), Math.max(parseFloat(e.target.min), value));
+        for (const other of p.querySelectorAll(`[data-set="${key}"]`)) if (other !== e.target) other.value = value;
+      } else {
+        value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+      }
       const [a, b] = key.split(".");
       if (b) settings[a][b] = value; else settings[a] = value;
     });
@@ -927,14 +936,21 @@
     const style = document.createElement("style");
     style.textContent = `
       .lit-panel[hidden] { display: none }
-      .lit-panel { position: fixed; left: 12px; bottom: 12px; z-index: 20; display: grid;
-        grid-template-columns: auto auto; gap: 4px 10px; align-items: center; padding: 10px 12px;
-        font: 12px/1.3 system-ui, sans-serif; color: #e6e6ea; background: rgba(20, 21, 27, .85);
-        border-radius: 8px; max-width: calc(100vw - 24px) }
-      .lit-panel strong, .lit-panel small, .lit-panel a { grid-column: 1 / -1 }
-      .lit-panel small { color: #9a9cab }
-      .lit-panel a { color: #9ab4ff }
-      .lit-panel select, .lit-panel input, .lit-panel button { font: inherit; max-width: 130px }
+      .lit-panel { position: fixed; left: 10px; bottom: 10px; z-index: 20; box-sizing: border-box;
+        width: 290px; max-width: calc(100vw - 20px); max-height: calc(100vh - 20px); overflow-y: auto;
+        display: grid; grid-template-columns: 74px 52px 1fr; gap: 3px 6px; align-items: center;
+        padding: 8px 10px; font: 11px/1.3 system-ui, sans-serif; color: #e6e6ea;
+        background: rgba(20, 21, 27, .88); border-radius: 8px }
+      .lit-panel strong, .lit-panel small, .lit-toggles, .lit-buttons { grid-column: 1 / -1 }
+      .lit-panel small { color: #9a9cab; overflow-wrap: anywhere }
+      .lit-panel [data-clock] { white-space: pre-line }
+      .lit-panel select { grid-column: 2 / -1 }
+      .lit-panel select, .lit-panel input, .lit-panel button { font: inherit; min-width: 0; margin: 0 }
+      .lit-panel input[type=number] { width: 100%; box-sizing: border-box; padding: 1px 3px }
+      .lit-panel input[type=range] { width: 100% }
+      .lit-toggles, .lit-buttons { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center }
+      .lit-toggle { display: inline-flex; gap: 4px; align-items: center }
+      .lit-buttons a { color: #9ab4ff; margin-left: auto }
       html.lit .avatar-ring { visibility: hidden }
       html.lit .--site-main .--container-component.--instance-container02 { border-image: none !important }`;
     document.head.append(style);
