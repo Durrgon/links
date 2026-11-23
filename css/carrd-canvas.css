@@ -13,7 +13,7 @@
     .--container-component.--instance-container02.--default>.--wrapper>.--inner>.component-wrapper.full {
         margin-left: calc(var(--padding-horizontal)*-1);
         max-width: none !important;
-        width: calc(100% + (var(--padding-horizontal)*2) + 0.4725px)
+        width: calc(100% + (var(--padding-horizontal)*2))
     }
 
     .--container-component.--instance-container02.--default>.--wrapper>.--inner>:last-child {
