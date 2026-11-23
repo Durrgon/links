@@ -6,7 +6,9 @@
 // height, diffuse + specular from a list of lights (point lights or spotlights). The static
 // images stay underneath as the fallback and are only hidden once this has started.
 //
-// Lights ("video" mode): key lights are the two brightest, well-separated spots of the
+// Lights ("video" mode), by default placed in front of the screen as if lighting the card
+// from the viewer's side, tilted towards where they are in the scene ("Light from").
+// Key lights are the two brightest, well-separated spots of the
 // background video, as spotlights aimed at one point (the card's centre, or Shift+click);
 // a 4 x 3 grid of softer fill lights comes from the rest of the frame. Alt+click pins a
 // key light's source. "Guides" draws their lines. Night mode keys the sky out of the
@@ -35,7 +37,11 @@
     light: "video",            // video | pointer | orbit
     scene: "day",              // day | night (video mode)
     guides: false,
-    height: 320,               // light height above the page, CSS px
+    from: "viewer",            // viewer: lights sit in front of the screen, tilted towards
+                               //   their spot in the scene; scene: right over the spot
+    distance: 900,             // viewer mode: how far in front of the screen, CSS px
+    spread: 0.6,               // viewer mode: how far the tilt follows the scene spot (0..1)
+    height: 320,               // scene mode: light height above the page, CSS px
     strength: 1.0,
     key: 1.0,                  // key lights vs fill lights
     fill: 1.0,                 // even light (ambient) multiplier
@@ -414,13 +420,24 @@
     return [r.left + r.width / 2, r.top + r.height / 2];
   }
 
-  // A spotlight from (x, y, height) aimed at the aim point on the page.
+  // Where a light whose scene spot is at screen (x, y) goes. Scene: right over the spot.
+  // Viewer: out in front of the screen (towards whoever is looking at it), moved only part
+  // of the way towards the spot, so the card is lit from the front with a tilt.
+  function place(x, y) {
+    if (settings.from === "scene") return [x, y, settings.height];
+    const [ax, ay] = aimPoint();
+    return [ax + (x - ax) * settings.spread, ay + (y - ay) * settings.spread, settings.distance];
+  }
+
+  // A spotlight for the scene spot (x, y), aimed at the aim point on the page.
   function spot(x, y, col) {
     const [ax, ay] = aimPoint();
-    const d = [ax - x, ay - y, -settings.height];
+    const pos = place(x, y);
+    const d = [ax - pos[0], ay - pos[1], -pos[2]];
     const len = Math.hypot(...d);
-    return { pos: [x, y, settings.height], col, dir: d.map(c => c / len),
-             cone: [Math.cos(50 * Math.PI / 180), Math.cos(22 * Math.PI / 180)] };
+    const [outer, inner] = settings.from === "scene" ? [50, 22] : [65, 35];
+    return { pos, col, dir: d.map(c => c / len),
+             cone: [Math.cos(outer * Math.PI / 180), Math.cos(inner * Math.PI / 180)] };
   }
 
   // Returns [{pos:[x,y,z] CSS px, col:[r,g,b], dir?, cone?}] and sets the fill/env.
@@ -436,7 +453,7 @@
         const gx = i % GRID_X, gy = Math.floor(i / GRID_X);
         const [x, y] = uvToScreen((gx + 0.5) / GRID_X, (gy + 0.5) / GRID_Y);
         const col = night ? c.map((v, k) => v * v * NIGHT_TINT[k] * 0.35) : c.map(v => v * v);
-        return { pos: [x, y, settings.height], col: col.map(v => v * fillK * 3) };
+        return { pos: place(x, y), col: col.map(v => v * fillK * 3) };
       });
       const keyK = settings.strength * settings.key;
       if (night) {
@@ -579,6 +596,9 @@
       `<strong>Live lighting</strong>` +
       select("Light", settings.light, ["video", "pointer", "orbit"], "light") +
       select("Scene", settings.scene, ["day", "night"], "scene") +
+      select("Light from", settings.from, ["viewer", "scene"], "from") +
+      range("Distance", "distance", 200, 3000, 50) +
+      range("Spread", "spread", 0, 1, 0.05) +
       `<label for="lit-guides">Guides</label><input id="lit-guides" type="checkbox" data-set="guides">` +
       range("Height", "height", 60, 900, 10) +
       range("Strength", "strength", 0.2, 2.5, 0.05) +
