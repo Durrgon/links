@@ -101,7 +101,7 @@
         flex-grow: 0;
         flex-shrink: 0;
         height: 100%;
-        min-width: 16px;
+        min-width: 11.2px;
         width: 1.5em;
         margin-left: 0.5em;
         margin-right: calc(-0.125em + 0.025rem);
@@ -288,14 +288,14 @@
         position: relative;
         z-index: 2;
 
-        /* zoom (unlike transform: scale) also shrinks the layout box, so the
-           page is no taller than the window; the height is in zoomed units */
-        zoom: .7;
-        min-height: calc(var(--viewport-height) / .7);
+        /* The card used to be shrunk with zoom: .7. The root font sizes below are
+           scaled by 0.7 instead (everything here is in rem/em), because Firefox
+           draws border-image wrongly inside a zoomed element. */
+        min-height: var(--viewport-height);
     }
 
     html {
-        font-size: 17pt
+        font-size: 11.9pt
     }
 
     .--body::after {
@@ -358,7 +358,7 @@
 
     .canvas-wrapper {
         min-height: var(--viewport-height);
-        font-size: 17pt
+        font-size: 11.9pt
     }
 
     .--container-component>.--wrapper>.--inner {
@@ -455,31 +455,31 @@
 
     @media screen and (max-width:1680px) {
         html {
-            font-size: 12pt
+            font-size: 8.4pt
         }
 
         .canvas-wrapper {
-            font-size: 12pt
+            font-size: 8.4pt
         }
     }
 
     @media screen and (max-width:1280px) {
         html {
-            font-size: 12pt
+            font-size: 8.4pt
         }
 
         .canvas-wrapper {
-            font-size: 12pt
+            font-size: 8.4pt
         }
     }
 
     @media screen and (max-width:980px) {
         html {
-            font-size: 11pt
+            font-size: 7.7pt
         }
 
         .canvas-wrapper {
-            font-size: 11pt
+            font-size: 7.7pt
         }
     }
 
@@ -616,11 +616,11 @@
         }
 
         html {
-            font-size: 12pt
+            font-size: 8.4pt
         }
 
         .canvas-wrapper {
-            font-size: 12pt
+            font-size: 8.4pt
         }
     }
 
@@ -684,20 +684,20 @@
     @media screen and (min-width:737px) {
         html,
         .canvas-wrapper {
-            font-size: max(10px, min(17pt, 2.3vh))
+            font-size: max(7px, min(11.9pt, 1.61vh))
         }
     }
 
     @media screen and (min-width:737px) and (max-width:1680px) {
         html,
         .canvas-wrapper {
-            font-size: max(10px, min(12pt, 2.3vh))
+            font-size: max(7px, min(8.4pt, 1.61vh))
         }
     }
 
     @media screen and (min-width:737px) and (max-width:980px) {
         html,
         .canvas-wrapper {
-            font-size: max(10px, min(11pt, 2.3vh))
+            font-size: max(7px, min(7.7pt, 1.61vh))
         }
     }

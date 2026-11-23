@@ -39,7 +39,7 @@ html {
 
 @media screen and (min-width:1680px) {
     html {
-        font-size: 15pt
+        font-size: 10.5pt
     }
 }
 
@@ -61,7 +61,7 @@ body {
 }
 
 a {
-    border-bottom: dotted 2px rgba(255, 255, 255, .375)
+    border-bottom: dotted 1.4px rgba(255, 255, 255, .375)
 }
 
 a:hover {
