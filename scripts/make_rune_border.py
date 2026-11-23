@@ -167,6 +167,7 @@ MODES = {  # mode: (stone, ink, gold, gold edge)
     "lines": ("#000", "#fff", "#000", "#000"),
     "runes": ("#000", "#000", "#fff", "#fff"),
     "grain": ("#fff", "none", "none", "none"),   # stone areas only, as raw noise
+    "edges": ("#000", "#fff", "none", "none"),   # the band's edge lines only (no rune grooves)
 }
 
 
@@ -315,11 +316,12 @@ MASK_SCALE = 4             # masks are S * 4 pixels square
 
 
 def write_masks():
-    """border-<shape|lines|runes|grain>.png in art/frame-masks/, for render_frame_blender.py."""
+    """border-<shape|lines|runes|grain|edges>.png in art/frame-masks/ (for render_frame_blender.py
+    and scripts/make_lit_maps.py)."""
     import subprocess
     import tempfile
     MASK_DIR.mkdir(parents=True, exist_ok=True)
-    for mode in ("shape", "lines", "runes", "grain"):
+    for mode in ("shape", "lines", "runes", "grain", "edges"):
         with tempfile.NamedTemporaryFile("w", suffix=".svg", delete=False, encoding="utf-8") as f:
             f.write(svg(mode, MASK_SCALE))
         out = MASK_DIR / f"border-{mode}.png"

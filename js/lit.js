@@ -17,7 +17,7 @@
 // and a moon, darkens the scene, and makes the moon the key light.
 (() => {
   "use strict";
-  const MAX_LIGHTS = 16;
+  const MAX_LIGHTS = 20;
   const BORDER = { src: "images/lit/border.png", size: 944, slice: 104, tile: 736 };
   const RING = { src: "images/lit/ring.png" };
   const SKY_MASK = "images/lit/sky-mask.png";
@@ -50,8 +50,11 @@
     bump: 1.6,
     sparkle: 1.0,              // glints on the metal
     extreme: true,             // big, frequent, bright glints
+    goldEdges: false,          // the band's edge lines as raised gold inlay instead of grooves
+    cursor: true,              // the mouse is a small light near the frame
     tilt: false,               // WASD tilts the card (debugging)
   };
+  if (window.route && window.route.flags.has("goldedges")) settings.goldEdges = true;   // #goldedges
   const aim = { x: null, y: null };          // null = the card's centre
   const pinned = { x: null, y: null };       // null = brightest spot of the video
 
@@ -158,6 +161,7 @@
   uniform vec3 uEnv;               // what the metal reflects
   uniform float uSparkle;          // strength of the glints on the metal
   uniform vec4 uGlint;             // cell size (CSS px), chance threshold, sharpness, gain
+  uniform float uGoldEdges;        // 1: the band's edge lines (texture B) are raised gold
   uniform vec3 uView;              // direction to the viewer, in the card's own frame
   uniform float uTime;
 
@@ -183,6 +187,12 @@
     return 0.55 * noise(p) + 0.3 * noise(p * 2.3) + 0.15 * noise(p * 5.1);
   }
 
+  // Height: runes raised, grooves sunk, a little stone grain; with gold edges the edge
+  // lines (texture B) are raised like the runes instead.
+  float heightOf(vec4 t, float stoneGrain) {
+    return t.r - 0.7 * t.g + 1.3 * t.b * uGoldEdges + 0.12 * stoneGrain;
+  }
+
   void main() {
     vec2 uv, du, dv;
     if (uMode == 0) {
@@ -200,13 +210,13 @@
 
     // Height: runes raised, grooves sunk, a little grain; normals from neighbouring samples.
     float g0 = grain(screen);
-    float h0 = m.r - 0.7 * m.g + 0.12 * g0;
+    float h0 = heightOf(m, g0);
     vec4 mx1 = texture(uTex, uv + du), my1 = texture(uTex, uv + dv);
-    float hx = mx1.r - 0.7 * mx1.g + 0.12 * grain(screen + vec2(1, 0));
-    float hy = my1.r - 0.7 * my1.g + 0.12 * grain(screen + vec2(0, 1));
+    float hx = heightOf(mx1, grain(screen + vec2(1, 0)));
+    float hy = heightOf(my1, grain(screen + vec2(0, 1)));
     vec3 n = normalize(vec3(-(hx - h0) * uBump * uDpr, -(hy - h0) * uBump * uDpr, 1.0));
 
-    float metal = smoothstep(0.2, 0.8, m.r);
+    float metal = smoothstep(0.2, 0.8, max(m.r, m.b * uGoldEdges));
     float groove = m.g * (1.0 - metal);
     vec3 stone = mix(uStoneDark, uStoneLight, smoothstep(0.25, 0.75, g0));
     vec3 base = mix(stone, uStoneDark * 0.35, groove);
@@ -514,7 +524,25 @@
   // Lights
   // =====================================================================================
   const pointer = { x: innerWidth * 0.3, y: innerHeight * 0.2 };
-  addEventListener("pointermove", e => { pointer.x = e.clientX; pointer.y = e.clientY; }, { passive: true });
+  addEventListener("pointermove", e => {
+    pointer.x = e.clientX; pointer.y = e.clientY; pointer.moved = performance.now(); pointer.inside = true;
+  }, { passive: true });
+  document.documentElement.addEventListener("pointerleave", () => { pointer.inside = false; });
+
+  // The mouse as a small light: a soft pool around the pointer, bright while it moves and
+  // fading out after a moment of stillness, so it can be raked across the metal.
+  const cursorGlow = { level: 0, last: 0 };
+  function cursorLight(time) {
+    const dt = Math.min(0.1, Math.max(0, (time - cursorGlow.last) / 1000));
+    cursorGlow.last = time;
+    const active = settings.cursor && settings.light !== "pointer" && pointer.inside &&
+                   performance.now() - (pointer.moved || -1e9) < 1500;
+    cursorGlow.level += ((active ? 1 : 0) - cursorGlow.level) * (1 - Math.exp(-dt * (active ? 8 : 2)));
+    if (cursorGlow.level < 0.01) return null;
+    const k = 0.9 * cursorGlow.level * settings.strength;
+    return { pos: [pointer.x, pointer.y, 150], col: [1.1 * k, 1.05 * k, 0.95 * k], dir: [0, 0, -1],
+             cone: [Math.cos(55 * Math.PI / 180), Math.cos(15 * Math.PI / 180)] };
+  }
 
   const AMBIENT = [0.35, 0.36, 0.42];
   const ENV = [0.62, 0.64, 0.70];
@@ -833,8 +861,10 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     gl.uniform1f(U.uSparkle, settings.sparkle * intro.e * intro.e);
     // normal: ~2.5 px points, 1 in 6, fairly exact; extreme: bigger, 1 in 2, easy to trigger
     gl.uniform4fv(U.uGlint, settings.extreme ? [4.5, 0.5, 40, 30] : [2.5, 0.84, 160, 6]);
+    gl.uniform1f(U.uGoldEdges, settings.goldEdges ? 1 : 0);
     gl.uniform1f(U.uTime, time);
-    const ls = introLights(lights(time).slice(0, MAX_LIGHTS));
+    const cur = cursorLight(time);
+    const ls = introLights(lights(time).slice(0, MAX_LIGHTS - (cur ? 1 : 0))).concat(cur ? [cur] : []);
     gl.uniform3fv(U.uAmbient, scene.ambient.map(c => c * settings.fill));
     gl.uniform3fv(U.uEnv, scene.env);
     gl.uniform1i(U.uLightCount, ls.length);
@@ -907,7 +937,8 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       range("Fill", "fill", 0, 2.5, 0.05) +
       range("Depth", "bump", 0, 6, 0.1) +
       range("Sparkle", "sparkle", 0, 10, 0.05) +
-      `<div class="lit-toggles">${toggle("Extreme sparkle", "extreme")}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
+      `<div class="lit-toggles">${toggle("Extreme sparkle", "extreme")}${toggle("Gold edges", "goldEdges")}` +
+      `${toggle("Cursor light", "cursor")}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
       select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
       select("Border metal", settings.border.metal, Object.keys(METALS), "border.metal") +

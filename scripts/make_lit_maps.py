@@ -1,7 +1,7 @@
 """Pack the frame masks into one RGBA texture per frame, for the live-lit page (js/lit.js).
 
-    R = runes (raised metal)     G = carved lines (grooves)
-    B = stone (band area)        A = shape (everything drawn)
+    R = runes (raised metal)     G = carved lines (edges and grooves round runes)
+    B = the band's edge lines    A = shape (everything drawn)
 
 Same framing as the static images, so js/lit.js draws them where the static ring and
 border are. The stone grain is made in the shader (in screen space, so the border's
@@ -26,9 +26,9 @@ FRAMES = {  # output name: (mask prefix, size in px)
 
 
 def pack(prefix, size, out):
-    channels = [MASKS / f"{prefix}-{name}.png" for name in ("runes", "lines", "shape", "shape")]
-    # The stone mask (B) is the shape without the runes and lines; here simply the shape:
-    # the shader lets runes and lines take over where they are set.
+    # the ring has no grooves round its runes, so its lines mask is all edges
+    edges = "edges" if (MASKS / f"{prefix}-edges.png").exists() else "lines"
+    channels = [MASKS / f"{prefix}-{name}.png" for name in ("runes", "lines", edges, "shape")]
     subprocess.run(["magick", *map(str, channels), "-resize", f"{size}x{size}!",
                     "-channel", "RGBA", "-combine", "-define", "png:color-type=6", str(out)],
                    check=True)
