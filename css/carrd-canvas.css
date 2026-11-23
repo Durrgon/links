@@ -677,3 +677,25 @@
             --spacing: 0.75rem
         }
     }
+    /* Fit the card to the window height, so short windows don't scroll a little.
+       The big >1680px font only applies when the window is tall enough for it. */
+    @media screen and (min-width:1681px) and (max-height:1000px) {
+        html,
+        .canvas-wrapper {
+            font-size: 12pt
+        }
+    }
+
+    @media screen and (min-width:737px) and (max-height:700px) {
+        .--site-wrapper {
+            zoom: .6;
+            min-height: calc(var(--viewport-height) / .6)
+        }
+    }
+
+    @media screen and (min-width:737px) and (max-height:600px) {
+        .--site-wrapper {
+            zoom: .5;
+            min-height: calc(var(--viewport-height) / .5)
+        }
+    }
