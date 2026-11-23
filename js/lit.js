@@ -400,8 +400,8 @@
     bgl.uniform2f(BU.uMoon, moon.u, moon.v);
     bgl.uniform2f(BU.uSun, sun.u, sun.v);
     bgl.uniform1f(BU.uSkyBottom, skyBottom);
-    bgl.uniform1f(BU.uGolden, weights.golden);
-    bgl.uniform1f(BU.uNight, weights.night);
+    bgl.uniform1f(BU.uGolden, weights.golden * intro.e);
+    bgl.uniform1f(BU.uNight, weights.night * intro.e);
     bgl.uniform1f(BU.uTime, time);
     bgl.uniform1f(BU.uAspect, r.width / r.height);
     bgl.drawArrays(bgl.TRIANGLE_STRIP, 0, 4);
@@ -695,6 +695,38 @@
   // Drawing
   // =====================================================================================
   let texBorder, texRing, clock = null, clockAt = -1e9;
+
+  // Intro: when the page loads the lights come up over INTRO_MS: key lights glide in from
+  // above the card, everything brightens from dim, the scene grade (sunset/night) eases
+  // in and the sparkle comes last. Reduced motion: a short fade only.
+  const INTRO_MS = reduceMotion ? 400 : 2200;
+  let introStart = null;
+  const intro = { e: 0, glide: 0 };           // eased progress: lighting, key-light glide
+  const easeInOutCubic = t => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+  function updateIntro(time) {
+    if (introStart === null) introStart = time;
+    const t = Math.min(1, (time - introStart) / INTRO_MS);
+    intro.e = easeInOutCubic(t);
+    intro.glide = reduceMotion ? 1 : easeOutCubic(Math.min(1, t * 1.25));
+  }
+  // Applied to the lights for this frame: dimmed by the intro, key lights gliding in.
+  function introLights(ls) {
+    if (intro.e >= 1) return ls;
+    const [ax, ay] = aimPoint();
+    const k = 0.08 + 0.92 * intro.e;
+    return ls.map(l => {
+      const out = { ...l, col: l.col.map(c => c * k) };
+      if (l.dir) {                              // key light: from high above the card
+        const from = [ax, ay - innerHeight * 0.7, l.pos[2] * 1.5];
+        out.pos = l.pos.map((v, i) => from[i] + (v - from[i]) * intro.glide);
+        const d = [ax - out.pos[0], ay - out.pos[1], -out.pos[2]];
+        const len = Math.hypot(...d);
+        out.dir = d.map(c => c / len);
+      }
+      return out;
+    });
+  }
   const fmt = h => `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.floor((h % 1) * 60)).padStart(2, "0")}`;
 
   function setMaterial(which) {
@@ -768,6 +800,7 @@
   }
 
   function frame(time) {
+    updateIntro(time);
     applyTilt(time);
     updateWeights(time);
     drawScene(time);
@@ -788,13 +821,13 @@
     gl.uniform2f(U.uCanvas, w, h);
     gl.uniform1f(U.uDpr, dpr);
     gl.uniform1f(U.uBump, settings.bump);
-    gl.uniform1f(U.uSparkle, settings.sparkle);
+    gl.uniform1f(U.uSparkle, settings.sparkle * intro.e * intro.e);
     // normal: ~2.5 px points, 1 in 6, fairly exact; extreme: bigger, 1 in 2, easy to trigger
     gl.uniform4fv(U.uGlint, settings.extreme ? [4.5, 0.5, 40, 30] : [2.5, 0.84, 160, 6]);
     gl.uniform1f(U.uTime, time);
-    const ls = lights(time).slice(0, MAX_LIGHTS);
-    gl.uniform3fv(U.uAmbient, scene.ambient.map(c => c * settings.fill));
-    gl.uniform3fv(U.uEnv, scene.env);
+    const ls = introLights(lights(time).slice(0, MAX_LIGHTS));
+    gl.uniform3fv(U.uAmbient, scene.ambient.map(c => c * settings.fill * (0.25 + 0.75 * intro.e)));
+    gl.uniform3fv(U.uEnv, scene.env.map(c => c * (0.4 + 0.6 * intro.e)));
     gl.uniform1i(U.uLightCount, ls.length);
     gl.uniform3fv(U["uLightPos[0]"], ls.flatMap(l => [l.pos[0] * dpr, l.pos[1] * dpr, l.pos[2] * dpr]));
     gl.uniform3fv(U["uLightCol[0]"], ls.flatMap(l => l.col));
@@ -864,7 +897,7 @@
       select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
       select("Border metal", settings.border.metal, Object.keys(METALS), "border.metal") +
       select("Border stone", settings.border.stone, Object.keys(STONES), "border.stone") +
-      `<small>Shift+click: aim · Alt+click: pin light · WASD: tilt (if on) · R: untilt · L: hide · <button type="button" data-reset>reset</button></small>` +
+      `<small>Shift+click: aim · Alt+click: pin light · WASD: tilt (if on) · R: untilt · L: hide · <button type="button" data-reset>reset</button> <button type="button" data-replay>replay intro</button></small>` +
       `<a href="${location.pathname}">Static version</a>`;
     p.addEventListener("input", e => {
       const key = e.target.dataset.set;
@@ -874,6 +907,7 @@
       const [a, b] = key.split(".");
       if (b) settings[a][b] = value; else settings[a] = value;
     });
+    p.querySelector("[data-replay]").addEventListener("click", () => { introStart = null; });
     p.querySelector("[data-reset]").addEventListener("click", () => {
       aim.x = aim.y = pinned.x = pinned.y = null;
     });
