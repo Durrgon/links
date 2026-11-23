@@ -6,8 +6,8 @@
 // height, diffuse + specular from a list of lights. The static images stay underneath as
 // the fallback and are only hidden once this has started.
 //
-// Lights: one point light that follows the pointer (or orbits). The shader takes up to
-// MAX_LIGHTS, so a video-driven set of lights can replace it later.
+// Lights: by default a 4 x 3 grid of lights taken from the background video (see
+// sampleScene); or one point light that follows the pointer, or orbits.
 (() => {
   "use strict";
   const MAX_LIGHTS = 16;
@@ -27,10 +27,11 @@
   const settings = {
     ring: { stone: "slate", metal: "gold" },
     border: { stone: "blackslate", metal: "silver" },
-    light: "pointer",          // pointer | orbit
-    height: 260,               // light height above the page, CSS px
+    light: "video",            // video | pointer | orbit
+    height: 320,               // light height above the page, CSS px
     strength: 1.0,
-    bump: 2.2,
+    fill: 1.0,                 // even light (ambient) multiplier
+    bump: 1.6,
   };
 
   const canvas = document.createElement("canvas");
@@ -135,11 +136,12 @@
       float dist = length(L);
       L /= dist;
       float ndl = max(dot(n, L), 0.0);
+      float wrap = max((dot(n, L) + 0.45) / 1.45, 0.0);   // diffuse wraps a little past the shadow line
       vec3 h = normalize(L + v);
-      float spec = pow(max(dot(n, h), 0.0), shin) * (shin + 8.0) / 25.0;
-      col += uLightCol[i] * (diffCol * ndl + specCol * spec * ndl);
+      float spec = pow(max(dot(n, h), 0.0), shin) * (shin + 8.0) / 40.0;
+      col += uLightCol[i] * (diffCol * wrap + specCol * spec * ndl);
     }
-    col = col / (1.0 + col * 0.25);      // soft tone curve so highlights don't clip hard
+    col = col / (1.0 + col * 0.45);      // soft tone curve so highlights don't clip hard
     outColor = vec4(col * m.a, m.a);
   }`;
 
@@ -192,8 +194,77 @@
   addEventListener("pointermove", e => { pointer.x = e.clientX; pointer.y = e.clientY; pointer.seen = true; }, { passive: true });
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // Returns [{pos:[x,y,z] CSS px, col:[r,g,b]}]. Swap this out for video-driven lights later.
+  const AMBIENT = [0.35, 0.36, 0.42];
+  const ENV = [0.62, 0.64, 0.70];
+
+  // ---- video-driven lights --------------------------------------------------------------
+  // The background video (or its poster on phones, where it doesn't play) is shrunk to a
+  // GRID_X x GRID_Y grid ~10 times a second. Each cell becomes a coloured light placed over
+  // that part of the screen; the frame's average colour becomes the fill light and what the
+  // metal reflects. Values are eased over time so the lighting doesn't flicker.
+  const GRID_X = 4, GRID_Y = 3;
+  const video = document.querySelector(".bg-video");
+  const poster = new Image();
+  if (video && video.poster) poster.src = video.poster;
+  const sampler = document.createElement("canvas");
+  sampler.width = GRID_X * 4; sampler.height = GRID_Y * 4;
+  const sctx = sampler.getContext("2d", { willReadFrequently: true });
+  const scene = {                       // eased values used for drawing
+    cells: Array.from({ length: GRID_X * GRID_Y }, () => [0.6, 0.6, 0.65]),
+    ambient: AMBIENT.slice(),
+    env: ENV.slice(),
+  };
+  const target = { cells: scene.cells.map(c => c.slice()), ambient: AMBIENT.slice(), env: ENV.slice() };
+  let lastSample = -1e9;
+
+  function sampleScene(time) {
+    if (time - lastSample < 100) return;
+    lastSample = time;
+    const playing = video && video.readyState >= 2 && video.currentSrc;
+    const source = playing ? video : poster.complete && poster.naturalWidth ? poster : null;
+    if (!source) return;
+    try {
+      sctx.drawImage(source, 0, 0, sampler.width, sampler.height);
+      const px = sctx.getImageData(0, 0, sampler.width, sampler.height).data;
+      const sum = [0, 0, 0];
+      for (let gy = 0; gy < GRID_Y; gy++) for (let gx = 0; gx < GRID_X; gx++) {
+        const c = [0, 0, 0];
+        for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
+          const i = ((gy * 4 + y) * sampler.width + gx * 4 + x) * 4;
+          for (let k = 0; k < 3; k++) c[k] += px[i + k] / 255 / 16;
+        }
+        target.cells[gy * GRID_X + gx] = c;
+        for (let k = 0; k < 3; k++) sum[k] += c[k] / (GRID_X * GRID_Y);
+      }
+      target.ambient = sum.map((c, k) => 0.22 + c * 0.55 + AMBIENT[k] * 0.1);
+      target.env = sum.map(c => 0.35 + c * 0.75);
+    } catch (e) { /* frame not ready */ }
+  }
+
+  function ease(cur, tgt, a) { for (let k = 0; k < cur.length; k++) cur[k] += (tgt[k] - cur[k]) * a; }
+  function easeScene() {
+    scene.cells.forEach((c, i) => ease(c, target.cells[i], 0.08));
+    ease(scene.ambient, target.ambient, 0.08);
+    ease(scene.env, target.env, 0.08);
+  }
+
+  // Returns [{pos:[x,y,z] CSS px, col:[r,g,b]}].
   function lights(time) {
+    if (settings.light === "video") {
+      sampleScene(time);
+      easeScene();
+      const k = settings.strength * 3.2 / (GRID_X * GRID_Y);
+      return scene.cells.map((c, i) => {
+        const gx = i % GRID_X, gy = Math.floor(i / GRID_X);
+        // brighter parts of the scene count for more (sky vs trees), so square the colour
+        return {
+          pos: [(gx + 0.5) / GRID_X * innerWidth, (gy + 0.5) / GRID_Y * innerHeight, settings.height],
+          col: c.map(v => v * v * k * 3),
+        };
+      });
+    }
+    ease(scene.ambient, AMBIENT, 0.08);
+    ease(scene.env, ENV, 0.08);
     let x = pointer.x, y = pointer.y;
     if (settings.light === "orbit" && !reduceMotion) {
       const a = time / 4000;
@@ -203,8 +274,6 @@
     const k = settings.strength;
     return [{ pos: [x, y, settings.height], col: [1.15 * k, 1.1 * k, 1.0 * k] }];
   }
-  const AMBIENT = [0.35, 0.36, 0.42];
-  const ENV = [0.62, 0.64, 0.70];
 
   // ---- drawing --------------------------------------------------------------------------
   let texBorder, texRing;
@@ -234,10 +303,10 @@
     gl.uniform2f(U.uCanvas, w, h);
     gl.uniform1f(U.uDpr, dpr);
     gl.uniform1f(U.uBump, settings.bump);
-    gl.uniform3fv(U.uAmbient, AMBIENT);
-    gl.uniform3fv(U.uEnv, ENV);
-
     const ls = lights(time).slice(0, MAX_LIGHTS);
+    gl.uniform3fv(U.uAmbient, scene.ambient.map(c => c * settings.fill));
+    gl.uniform3fv(U.uEnv, scene.env);
+
     gl.uniform1i(U.uLightCount, ls.length);
     gl.uniform3fv(U["uLightPos[0]"], ls.flatMap(l => [l.pos[0] * dpr, l.pos[1] * dpr, l.pos[2] * dpr]));
     gl.uniform3fv(U["uLightCol[0]"], ls.flatMap(l => l.col));
@@ -274,9 +343,10 @@
     };
     p.innerHTML =
       `<strong>Live lighting</strong>` +
-      select("Light", settings.light, ["pointer", "orbit"], "light") +
+      select("Light", settings.light, ["video", "pointer", "orbit"], "light") +
       `<label for="lit-height">Height</label><input id="lit-height" type="range" min="60" max="800" value="${settings.height}" data-set="height">` +
       `<label for="lit-strength">Strength</label><input id="lit-strength" type="range" min="0.2" max="2.5" step="0.05" value="${settings.strength}" data-set="strength">` +
+      `<label for="lit-fill">Fill</label><input id="lit-fill" type="range" min="0" max="2.5" step="0.05" value="${settings.fill}" data-set="fill">` +
       `<label for="lit-bump">Depth</label><input id="lit-bump" type="range" min="0" max="6" step="0.1" value="${settings.bump}" data-set="bump">` +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
       select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
