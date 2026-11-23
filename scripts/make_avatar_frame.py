@@ -45,13 +45,13 @@ RUNES = {
 # Local coords for head and tail: +x runs clockwise along the band, the band is
 # y in [-13, 13], and -y points outward.
 
-# Plain ring (the one the page uses): closed, no head or tail, half the band width.
-PLAIN_BAND = BAND / 2
+# Plain ring (the one the page uses): closed, no head or tail, 75% of the band width.
+PLAIN_BAND = BAND * 0.75          # share of the full band width
 PLAIN_R_OUT = R_IN + PLAIN_BAND
 PLAIN_R_MID = R_IN + PLAIN_BAND / 2
-PLAIN_RUNE_SCALE = 0.62            # runes are 12 tall at full size
-PLAIN_RUNE_LINE = 1.2              # rune stroke width on the plain ring
-PLAIN_REPEATS = 3                  # times the inscription goes round
+PLAIN_RUNE_SCALE = 0.85            # runes are 12 tall at full size
+PLAIN_RUNE_LINE = 1.4              # rune stroke width on the plain ring
+PLAIN_REPEATS = 2                  # times the inscription goes round
 
 # Head, at END, pointing clockwise. Urnes-style, drawn with sharp corners: long upper
 # jaw with a pointed tip and a hook curling up, short pointed lower jaw, a teardrop
