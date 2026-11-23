@@ -97,14 +97,14 @@ a:focus-visible {
 }
 
 /* The ring (images/avatar-frame.svg, from scripts/make_avatar_frame.py) is a
-   runestone serpent band; the avatar fills its inner circle (71% across). */
+   runestone serpent band; the avatar fills its inner circle (the script prints the sizes). */
 .avatar-frame {
     position: absolute;
     left: 50%;
     bottom: 0;
     transform: translate(-50%, 50%);
-    width: 8.75rem;
-    height: 8.75rem;
+    width: 9.625rem;
+    height: 9.625rem;
     z-index: 2
 }
 
@@ -115,10 +115,10 @@ a:focus-visible {
 }
 
 .avatar {
-    left: 14.5%;
-    top: 14.5%;
-    width: 71%;
-    height: 71%;
+    left: 17.73%;
+    top: 17.73%;
+    width: 64.55%;
+    height: 64.55%;
     border-radius: 50%;
     background: rgb(56, 57, 71);
     object-fit: cover
