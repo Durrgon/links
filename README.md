@@ -34,5 +34,7 @@ Renders go to `art/renders/` (not committed) with a transparent background.
 `art/bind-rune.svg`: edit it in any tool; only its shape is used. `--psd` exports
 `art/bind-rune.psd` to edit in Photoshop instead; point `BIND_RUNE_FILE` in the script
 at it to use it. The page's border is the Blender render `images/rune-border.webp`
-(slice 104). `art/border-playground.html` shows zoomed strips of each variant in
+(slice 104); finish every render with
+`python scripts/make_rune_border.py --finish <render.png> <out.webp>`, which copies the
+top strip to all four sides so their lighting matches. `art/border-playground.html` shows zoomed strips of each variant in
 `art/border-variants/`, with sliders.

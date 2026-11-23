@@ -12,6 +12,8 @@ The runes run clockwise round the box with their tops facing outward. Each tile
 is seamless (the stone grain is stitched), so any number of repeats joins up.
 
 Usage: python scripts/make_rune_border.py [--masks] [--psd]
+       python scripts/make_rune_border.py --finish <blender render.png> <out.webp>
+         (copies the top strip to all sides so the lighting matches; use for every render)
        --masks: Blender masks (see the end); --psd: export art/bind-rune.psd to edit
 """
 from pathlib import Path
@@ -327,8 +329,29 @@ def write_masks():
         print("Wrote", out)
 
 
+def finish_render(render, out):
+    """Make a Blender render of the border even on all four sides: the top strip is
+    copied, rotated, onto the right, bottom and left strips (a single light from one
+    side lights each strip's carving differently, and the metal reflects a different
+    part of the sky on each). Corners stay as rendered. Writes WebP (or PNG)."""
+    import subprocess
+    k = MASK_SCALE
+    b, t, s = BAND * k, TILE * k, S * k
+    top = ["(", "-clone", "0", "-crop", f"{t}x{b}+{b}+0", "+repage"]
+    subprocess.run(["magick", str(render),
+                    *top, "-rotate", "90", ")", "-geometry", f"+{s - b}+{b}", "-composite",
+                    *top, "-rotate", "180", ")", "-geometry", f"+{b}+{s - b}", "-composite",
+                    *top, "-rotate", "270", ")", "-geometry", f"+0+{b}", "-composite",
+                    "-define", "webp:alpha-quality=100", "-quality", "90", str(out)], check=True)
+    print("Wrote", out)
+
+
 if __name__ == "__main__":
     import sys
+    if "--finish" in sys.argv:     # --finish <render.png> <out.webp>
+        i = sys.argv.index("--finish")
+        finish_render(Path(sys.argv[i + 1]), Path(sys.argv[i + 2]))
+        sys.exit()
     OUT.write_text(svg(), encoding="utf-8")
     print("Wrote", OUT, f"({S}x{S}; border-image slice {BAND})")
     if "--psd" in sys.argv:
