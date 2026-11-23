@@ -409,23 +409,80 @@
   // =====================================================================================
   // Time of day: weights for golden hour and night
   // =====================================================================================
-  // Fixed, simple times (no location or season): sunrise 06:30, sunset 19:00. Golden hour
-  // peaks there; night is fully in from about 21:00 to 05:00, fading in between.
-  const SUNRISE = 6.5, SUNSET = 19.0;
-  const SCENE_HOURS = { day: 13, sunset: SUNSET, night: 0 };
+  // Today's sunrise and sunset for roughly where the visitor is, without asking for their
+  // location: the browser's time zone gives approximate coordinates (a small table of
+  // zones; otherwise longitude from the UTC offset and ~40° latitude), and the standard
+  // sunrise equation gives the times, usually within 15-30 minutes. Golden hour is full
+  // within ~45 min of sunrise/sunset and fades out over the next hour; night is fully in
+  // from ~2 h after sunset to ~1.5 h before sunrise.
+  const ZONES = {   // time zone: [latitude, longitude]
+    "America/New_York": [40.7, -74.0], "America/Toronto": [43.7, -79.4], "America/Chicago": [41.9, -87.6],
+    "America/Denver": [39.7, -105.0], "America/Phoenix": [33.4, -112.1], "America/Los_Angeles": [34.1, -118.2],
+    "America/Vancouver": [49.3, -123.1], "America/Anchorage": [61.2, -149.9], "Pacific/Honolulu": [21.3, -157.9],
+    "America/Halifax": [44.6, -63.6], "America/St_Johns": [47.6, -52.7], "America/Mexico_City": [19.4, -99.1],
+    "America/Bogota": [4.7, -74.1], "America/Lima": [-12.0, -77.0], "America/Santiago": [-33.4, -70.7],
+    "America/Sao_Paulo": [-23.5, -46.6], "America/Argentina/Buenos_Aires": [-34.6, -58.4],
+    "Europe/London": [51.5, -0.1], "Europe/Dublin": [53.3, -6.3], "Europe/Lisbon": [38.7, -9.1],
+    "Europe/Madrid": [40.4, -3.7], "Europe/Paris": [48.9, 2.4], "Europe/Brussels": [50.8, 4.4],
+    "Europe/Amsterdam": [52.4, 4.9], "Europe/Berlin": [52.5, 13.4], "Europe/Rome": [41.9, 12.5],
+    "Europe/Zurich": [47.4, 8.5], "Europe/Vienna": [48.2, 16.4], "Europe/Prague": [50.1, 14.4],
+    "Europe/Warsaw": [52.2, 21.0], "Europe/Stockholm": [59.3, 18.1], "Europe/Oslo": [59.9, 10.8],
+    "Europe/Copenhagen": [55.7, 12.6], "Europe/Helsinki": [60.2, 24.9], "Europe/Athens": [38.0, 23.7],
+    "Europe/Istanbul": [41.0, 29.0], "Europe/Kyiv": [50.5, 30.5], "Europe/Moscow": [55.8, 37.6],
+    "Atlantic/Reykjavik": [64.1, -21.9], "Africa/Cairo": [30.0, 31.2], "Africa/Lagos": [6.5, 3.4],
+    "Africa/Nairobi": [-1.3, 36.8], "Africa/Johannesburg": [-26.2, 28.0], "Asia/Dubai": [25.2, 55.3],
+    "Asia/Kolkata": [19.1, 72.9], "Asia/Bangkok": [13.8, 100.5], "Asia/Singapore": [1.35, 103.8],
+    "Asia/Jakarta": [-6.2, 106.8], "Asia/Manila": [14.6, 121.0], "Asia/Shanghai": [31.2, 121.5],
+    "Asia/Hong_Kong": [22.3, 114.2], "Asia/Taipei": [25.0, 121.6], "Asia/Seoul": [37.6, 127.0],
+    "Asia/Tokyo": [35.7, 139.7], "Australia/Perth": [-31.95, 115.9], "Australia/Adelaide": [-34.9, 138.6],
+    "Australia/Brisbane": [-27.5, 153.0], "Australia/Sydney": [-33.9, 151.2], "Australia/Melbourne": [-37.8, 145.0],
+    "Pacific/Auckland": [-36.85, 174.8],
+  };
+  const sunTimes = { rise: 6.5, set: 19.0, where: "" };
+  function estimateSunTimes(date = new Date()) {
+    let zone = "";
+    try { zone = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) { /* none */ }
+    const jan = new Date(date.getFullYear(), 0, 1).getTimezoneOffset();
+    const jul = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
+    const standard = Math.max(jan, jul);                      // minutes behind UTC, without DST
+    let [lat, lon] = ZONES[zone] || [NaN, -standard / 4];      // 15° of longitude per hour
+    if (isNaN(lat)) lat = /^(Australia|Pacific\/(Auckland|Fiji)|America\/(Argentina|Santiago|Sao_Paulo|Montevideo|Asuncion))/.test(zone) ? -30 : 40;
+    // sunrise equation (declination and equation of time: standard approximations)
+    const rad = Math.PI / 180;
+    const day = (Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - Date.UTC(date.getFullYear(), 0, 0)) / 864e5;
+    const g = 2 * Math.PI / 365 * (day - 1);
+    const decl = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g)
+               + 0.000907 * Math.sin(2 * g) - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+    const eqTime = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g)
+                 - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));   // minutes
+    const cosH = (Math.sin(-0.833 * rad) - Math.sin(lat * rad) * Math.sin(decl)) / (Math.cos(lat * rad) * Math.cos(decl));
+    const halfDay = Math.acos(Math.max(-1, Math.min(1, cosH))) / rad / 15;    // hours
+    const noonUtc = 12 - lon / 15 - eqTime / 60;
+    const noonLocal = noonUtc - date.getTimezoneOffset() / 60;                // today's offset (DST)
+    // keep both inside the day, and leave room for golden hour even in polar summer/winter
+    sunTimes.rise = Math.max(2, Math.min(11.5, noonLocal - halfDay));
+    sunTimes.set = Math.min(22, Math.max(12.5, noonLocal + halfDay));
+    sunTimes.where = (ZONES[zone] ? zone : (zone || "UTC offset") + " (rough)") + ` ${lat.toFixed(0)}°, ${lon.toFixed(0)}°`;
+  }
+  estimateSunTimes();
+  setInterval(() => estimateSunTimes(), 30 * 60 * 1000);
+
+  const SCENE_HOURS = { day: () => (sunTimes.rise + sunTimes.set) / 2, sunset: () => sunTimes.set, night: () => (sunTimes.set + 24 + sunTimes.rise) / 2 % 24 };
   const weights = { golden: 0, night: 0 };
   function sceneHour() {
     if (settings.scene === "custom") return settings.hour;
-    if (settings.scene in SCENE_HOURS) return SCENE_HOURS[settings.scene];
+    if (settings.scene in SCENE_HOURS) return SCENE_HOURS[settings.scene]();
     const now = new Date();
     return now.getHours() + now.getMinutes() / 60;
   }
   const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   function weightsAt(h) {
-    const night = 1 - smooth(SUNRISE - 1.5, SUNRISE + 0.5, h) + smooth(SUNSET + 0.25, SUNSET + 2, h);
-    const bell = (c, w) => Math.max(0, 1 - Math.abs(h - c) / w);
-    const golden = Math.min(1, 1.25 * Math.max(bell(SUNRISE, 1.4), bell(SUNSET, 1.6)));
-    return { night: Math.min(1, Math.max(0, night)), golden: smooth(0, 1, golden) };
+    const { rise, set } = sunTimes;
+    const night = 1 - smooth(rise - 1.5, rise + 0.5, h) + smooth(set + 0.25, set + 2, h);
+    // golden hour: full within 0.75 h of sunrise/sunset, gone 1.75 h away
+    const near = Math.min(Math.abs(h - rise), Math.abs(h - set));
+    const golden = 1 - smooth(0.75, 1.75, near);
+    return { night: Math.min(1, Math.max(0, night)), golden };
   }
   // The shown time glides to the scene's hour (the short way round the clock, ~2 s), so
   // switching scenes moves the sun and moon along their paths instead of jumping.
@@ -438,9 +495,10 @@
     const diff = ((goal - shownHour + 36) % 24) - 12;          // -12..12
     shownHour = (shownHour + diff * (1 - Math.exp(-dt * 2.2)) + 24) % 24;
     Object.assign(weights, weightsAt(shownHour));
-    bodyAt((shownHour - SUNRISE) / (SUNSET - SUNRISE), sun);
-    const night = 24 - (SUNSET - SUNRISE) + 1;                 // the moon is up a little longer
-    bodyAt((((shownHour - (SUNSET - 0.5)) % 24) + 24) % 24 / night, moon);
+    const { rise, set } = sunTimes;
+    bodyAt((shownHour - rise) / (set - rise), sun);
+    const night = 24 - (set - rise) + 1;                       // the moon is up a little longer
+    bodyAt((((shownHour - (set - 0.5)) % 24) + 24) % 24 / night, moon);
   }
 
   // =====================================================================================
@@ -636,6 +694,7 @@
   // Drawing
   // =====================================================================================
   let texBorder, texRing, clock = null, clockAt = -1e9;
+  const fmt = h => `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.floor((h % 1) * 60)).padStart(2, "0")}`;
 
   function setMaterial(which) {
     const m = settings[which];
@@ -715,7 +774,8 @@
       const h = shownHour ?? sceneHour(), hh = Math.floor(h), mm = Math.floor((h - hh) * 60);
       clock.textContent = `Scene time ${String(hh).padStart(2, "0")}:${String(mm % 60).padStart(2, "0")}` +
         ` · golden ${weights.golden.toFixed(2)} · night ${weights.night.toFixed(2)}` +
-        ` · tilt ${tilt.yaw.toFixed(0)}°, ${tilt.pitch.toFixed(0)}°`;
+        ` · tilt ${tilt.yaw.toFixed(0)}°, ${tilt.pitch.toFixed(0)}°` +
+        ` · sunrise ${fmt(sunTimes.rise)}, sunset ${fmt(sunTimes.set)} for ${sunTimes.where}`;
     }
     const dpr = Math.min(devicePixelRatio || 1, 2);
     const w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
