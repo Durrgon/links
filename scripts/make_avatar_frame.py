@@ -8,7 +8,8 @@ font is needed.
 Writes both images/avatar-frame.svg (plain ring, used by the page) and
 images/avatar-frame-head.svg (the serpent biting its tail).
 
-Usage: python scripts/make_avatar_frame.py   (prints the sizes for css/main.css)
+Usage: python scripts/make_avatar_frame.py [--masks]   (prints the sizes for css/main.css;
+       --masks also writes art/frame-masks/*.png for Substance Painter or Blender)
 """
 import math
 from pathlib import Path
@@ -213,10 +214,58 @@ def css_hint(name, full):
             f"{(full / 2 - R_IN) / full:.2%}, size {2 * R_IN / full:.2%}")
 
 
+# --- Masks for Substance Painter / Blender -----------------------------------------
+# White-on-black PNGs with exactly the same framing as the SVGs, so a texture made
+# from them drops into the page with the same CSS sizes:
+#   shape  everything drawn (use as opacity: outside and the avatar hole are black)
+#   stone  the stone areas (band, head, tail, lappet ribbon)
+#   lines  carved outlines and head details
+#   runes  runes and word dividers
+MASK_DIR = OUT.parent.parent / "art" / "frame-masks"
+MASKS = {  # mask name -> colour for (stone, ink, runes)
+    "shape": ("#fff", "#fff", "#fff"),
+    "stone": ("#fff", "#000", "#000"),
+    "lines": ("#000", "#fff", "#000"),
+    "runes": ("#000", "#000", "#fff"),
+}
+
+
+def mask_svg(source, colours):
+    import re
+    s = re.sub(r' filter="url\(#\w+\)"', "", source)          # no texture or shadow
+    for colour, new in zip((STONE, INK, RUNE), colours):
+        s = s.replace(f'"{colour}"', f'"{new}"')
+    vb = re.search(r'viewBox="([^"]+)"', s).group(1).split()
+    rect = f'<rect x="{vb[0]}" y="{vb[1]}" width="{vb[2]}" height="{vb[3]}" fill="#000"/>'
+    return re.sub(r"(<svg[^>]*>)", r"\1" + rect, s, count=1), float(vb[2])
+
+
+def write_masks(px=2048):
+    """Rasterise each mask with ImageMagick (magick on PATH)."""
+    import subprocess
+    import tempfile
+    MASK_DIR.mkdir(parents=True, exist_ok=True)
+    for variant, source in (("plain", plain_svg()), ("head", head_svg())):
+        for name, colours in MASKS.items():
+            text, width = mask_svg(source, colours)
+            with tempfile.NamedTemporaryFile("w", suffix=".svg", delete=False, encoding="utf-8") as f:
+                f.write(text)
+            out = MASK_DIR / f"{variant}-{name}.png"
+            density = 72 * px / width * 1.05
+            subprocess.run(["magick", "-background", "#000", "-density", f"{density:.0f}", f.name,
+                            "-resize", f"{px}x{px}!", "-colorspace", "Gray", "-depth", "8", str(out)],
+                           check=True)
+            Path(f.name).unlink()
+            print("Wrote", out)
+
+
 if __name__ == "__main__":
+    import sys
     OUT.write_text(plain_svg(), encoding="utf-8")
     HEAD_OUT.write_text(head_svg(), encoding="utf-8")
     print("Wrote", OUT, "and", HEAD_OUT)
     print("For css/main.css (.avatar-frame / .avatar):")
     print(" ", css_hint(OUT.name, plain_box()[2]))
     print(" ", css_hint(HEAD_OUT.name, SIZE + 2 * PAD))
+    if "--masks" in sys.argv:
+        write_masks()
