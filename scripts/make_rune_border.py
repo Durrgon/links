@@ -32,6 +32,12 @@ GOLD_EDGE = "#5a4317"      # dark rim under the gold, so it reads as inlaid
 LINE = 1.6
 EDGE = 1.4                 # how far the carved edge lines sit inside the band
 
+# Corner mark: a bind rune of ᚾ ᚨ ᛏ (the first three runes of the title) on one
+# stave, in the same 6 x 12 box as the runes: ᛏ's arrow on top, ᚨ sharing the
+# arrow's right arm plus its second branch below, ᚾ's cross-stroke lower down.
+BIND_RUNE = "M3,0V12 M0,3L3,0L6,3 M3,3L6,6 M1,7.5L5,10.5"
+BIND_SCALE = 1.45          # 12 * 1.45 = 17.4 of the 26-wide corner
+
 
 def grain(fid, w, h, raw=False):
     if raw:   # just the grey noise, for the Blender grain map
@@ -95,28 +101,37 @@ def svg(mode="web", scale=1):
       {rune_marks(mode)}
       </g>
     </g>"""
-    # Corner: outer sides are top and left. The edge lines turn the corner, and a
-    # small gold diamond marks it.
+    # Corner: outer sides are top and left. The edge lines turn the corner, and the
+    # NAT bind rune marks it, turned back upright whichever corner it is in.
     c = BAND / 2
-    corner = f"""<g id="corner">
+    k = BIND_SCALE
+
+    def corner(turn):
+        t = f"rotate({-turn},{c},{c}) translate({c - 3 * k},{c - 6 * k}) scale({k})"
+        if mode == "web":
+            mark = (f'<path transform="{t}" d="{BIND_RUNE}" stroke="{gold_edge}" stroke-width="{2.9 / k:.2f}"/>'
+                    f'<path transform="{t}" d="{BIND_RUNE}" stroke="{gold}" stroke-width="{1.5 / k:.2f}"/>')
+        else:
+            mark = f'<path transform="{t}" d="{BIND_RUNE}" stroke="{gold}" stroke-width="{2.1 / k:.2f}"/>'
+        return f"""<g>
       <rect width="{BAND}" height="{BAND}" fill="{stone}"{corner_fill}/>
       <path d="M{BAND},{EDGE}H{EDGE}V{BAND}" stroke="{ink}" stroke-width="{LINE}" fill="none" stroke-linejoin="round"/>
       <path d="M{BAND},{BAND - EDGE}H{BAND - EDGE}V{BAND}" stroke="{ink}" stroke-width="{LINE}" fill="none"/>
-      <path d="M{c},{c - 5}L{c + 5},{c}L{c},{c + 5}L{c - 5},{c}Z" fill="{gold}" stroke="{gold_edge}" stroke-width="1.2"/>
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round">{mark}</g>
     </g>"""
-    place = [  # (element, transform)
-        ("corner", "translate(0,0)"),
-        ("tile", f"translate({BAND},0)"),
-        ("corner", f"translate({S},0) rotate(90)"),
-        ("tile", f"translate({S},{BAND}) rotate(90)"),
-        ("corner", f"translate({S},{S}) rotate(180)"),
-        ("tile", f"translate({S - BAND},{S}) rotate(180)"),
-        ("corner", f"translate(0,{S}) rotate(270)"),
-        ("tile", f"translate(0,{S - BAND}) rotate(270)"),
+
+    tile = tile.replace(' id="tile"', "")
+    place = [  # (piece, transform); each piece written out in full rather than reused with <use>
+        (corner(0), "translate(0,0)"),
+        (tile, f"translate({BAND},0)"),
+        (corner(90), f"translate({S},0) rotate(90)"),
+        (tile, f"translate({S},{BAND}) rotate(90)"),
+        (corner(180), f"translate({S},{S}) rotate(180)"),
+        (tile, f"translate({S - BAND},{S}) rotate(180)"),
+        (corner(270), f"translate(0,{S}) rotate(270)"),
+        (tile, f"translate(0,{S - BAND}) rotate(270)"),
     ]
-    # Each piece is written out in full rather than reused with <use>.
-    pieces = {"tile": tile.replace(' id="tile"', ""), "corner": corner.replace(' id="corner"', "")}
-    uses = "\n  ".join(f'<g transform="{t}">{pieces[e]}</g>' for e, t in place)
+    uses = "\n  ".join(f'<g transform="{t}">{piece}</g>' for piece, t in place)
     background = "" if mode == "web" else f'<rect width="{S}" height="{S}" fill="#000"/>'
     raw = mode == "grain"
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{S * scale}" height="{S * scale}" viewBox="0 0 {S} {S}">
