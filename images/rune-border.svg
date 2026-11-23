@@ -26,11 +26,11 @@
       <g transform="rotate(0,13.0,13.0)"><g filter="url(#mark)"><svg x="8.5" y="5.5" width="9" height="15" viewBox="-15 -15 90 150" preserveAspectRatio="none" overflow="visible">
   
   
-  <g fill="none" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+  <g fill="none" stroke-width="20" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4">
     
     <path id="rune-t" stroke="#c9c9c9" d="M30,0V120 M0,30L30,0L60,30"/>
     
-    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,30L60,60"/>
+    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,42L60,72"/>
     
     <path id="rune-n" stroke="#c9c9c9" d="M30,0V120 M10,75L50,105"/>
   </g>
@@ -39,12 +39,12 @@
   <g transform="translate(26,0)"><g>
       <rect width="184" height="26" fill="#a7adb4" filter="url(#grain-tile)"/>
       <path d="M0,1.4H184M0,24.6H184" stroke="#26262a" stroke-width="1.6"/>
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <g fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4">
       <path transform="translate(2.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(2.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#d2a54a" stroke-width="1.5"/>
-      <path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#d2a54a" stroke-width="1.5"/>
+      <path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(25.75,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(25.75,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(37.25,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(37.25,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#d2a54a" stroke-width="1.5"/>
-      <path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,7L5,3" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,7L5,3" stroke="#d2a54a" stroke-width="1.5"/>
+      <path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,8.2L5,4.2" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,8.2L5,4.2" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(60.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(60.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(71.75,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(71.75,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(83.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(83.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#d2a54a" stroke-width="1.5"/>
@@ -52,7 +52,7 @@
       <circle cx="97.75" cy="15.5" r="1.5" fill="#5a4317"/><circle cx="97.75" cy="15.5" r="1.05" fill="#d2a54a"/>
       <path transform="translate(106.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(106.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(117.75,7.0)" d="M1,12V0L5,3L1,6L5,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(117.75,7.0)" d="M1,12V0L5,3L1,6L5,12" stroke="#d2a54a" stroke-width="1.5"/>
-      <path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#d2a54a" stroke-width="1.5"/>
+      <path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(140.75,7.0)" d="M5,2L1,6L5,10" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(140.75,7.0)" d="M5,2L1,6L5,10" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(152.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(152.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(163.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(163.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#d2a54a" stroke-width="1.5"/>
@@ -67,11 +67,11 @@
       <g transform="rotate(-90,13.0,13.0)"><g filter="url(#mark)"><svg x="8.5" y="5.5" width="9" height="15" viewBox="-15 -15 90 150" preserveAspectRatio="none" overflow="visible">
   
   
-  <g fill="none" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+  <g fill="none" stroke-width="20" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4">
     
     <path id="rune-t" stroke="#c9c9c9" d="M30,0V120 M0,30L30,0L60,30"/>
     
-    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,30L60,60"/>
+    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,42L60,72"/>
     
     <path id="rune-n" stroke="#c9c9c9" d="M30,0V120 M10,75L50,105"/>
   </g>
@@ -80,12 +80,12 @@
   <g transform="translate(236,26) rotate(90)"><g>
       <rect width="184" height="26" fill="#a7adb4" filter="url(#grain-tile)"/>
       <path d="M0,1.4H184M0,24.6H184" stroke="#26262a" stroke-width="1.6"/>
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <g fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4">
       <path transform="translate(2.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(2.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#d2a54a" stroke-width="1.5"/>
-      <path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#d2a54a" stroke-width="1.5"/>
+      <path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(25.75,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(25.75,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(37.25,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(37.25,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#d2a54a" stroke-width="1.5"/>
-      <path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,7L5,3" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,7L5,3" stroke="#d2a54a" stroke-width="1.5"/>
+      <path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,8.2L5,4.2" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,8.2L5,4.2" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(60.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(60.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(71.75,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(71.75,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(83.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(83.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#d2a54a" stroke-width="1.5"/>
@@ -93,7 +93,7 @@
       <circle cx="97.75" cy="15.5" r="1.5" fill="#5a4317"/><circle cx="97.75" cy="15.5" r="1.05" fill="#d2a54a"/>
       <path transform="translate(106.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(106.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(117.75,7.0)" d="M1,12V0L5,3L1,6L5,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(117.75,7.0)" d="M1,12V0L5,3L1,6L5,12" stroke="#d2a54a" stroke-width="1.5"/>
-      <path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#d2a54a" stroke-width="1.5"/>
+      <path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(140.75,7.0)" d="M5,2L1,6L5,10" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(140.75,7.0)" d="M5,2L1,6L5,10" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(152.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(152.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(163.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(163.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#d2a54a" stroke-width="1.5"/>
@@ -108,11 +108,11 @@
       <g transform="rotate(-180,13.0,13.0)"><g filter="url(#mark)"><svg x="8.5" y="5.5" width="9" height="15" viewBox="-15 -15 90 150" preserveAspectRatio="none" overflow="visible">
   
   
-  <g fill="none" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+  <g fill="none" stroke-width="20" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4">
     
     <path id="rune-t" stroke="#c9c9c9" d="M30,0V120 M0,30L30,0L60,30"/>
     
-    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,30L60,60"/>
+    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,42L60,72"/>
     
     <path id="rune-n" stroke="#c9c9c9" d="M30,0V120 M10,75L50,105"/>
   </g>
@@ -121,12 +121,12 @@
   <g transform="translate(210,236) rotate(180)"><g>
       <rect width="184" height="26" fill="#a7adb4" filter="url(#grain-tile)"/>
       <path d="M0,1.4H184M0,24.6H184" stroke="#26262a" stroke-width="1.6"/>
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <g fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4">
       <path transform="translate(2.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(2.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#d2a54a" stroke-width="1.5"/>
-      <path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#d2a54a" stroke-width="1.5"/>
+      <path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(25.75,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(25.75,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(37.25,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(37.25,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#d2a54a" stroke-width="1.5"/>
-      <path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,7L5,3" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,7L5,3" stroke="#d2a54a" stroke-width="1.5"/>
+      <path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,8.2L5,4.2" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,8.2L5,4.2" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(60.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(60.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(71.75,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(71.75,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(83.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(83.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#d2a54a" stroke-width="1.5"/>
@@ -134,7 +134,7 @@
       <circle cx="97.75" cy="15.5" r="1.5" fill="#5a4317"/><circle cx="97.75" cy="15.5" r="1.05" fill="#d2a54a"/>
       <path transform="translate(106.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(106.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(117.75,7.0)" d="M1,12V0L5,3L1,6L5,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(117.75,7.0)" d="M1,12V0L5,3L1,6L5,12" stroke="#d2a54a" stroke-width="1.5"/>
-      <path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#d2a54a" stroke-width="1.5"/>
+      <path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(140.75,7.0)" d="M5,2L1,6L5,10" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(140.75,7.0)" d="M5,2L1,6L5,10" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(152.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(152.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(163.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(163.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#d2a54a" stroke-width="1.5"/>
@@ -149,11 +149,11 @@
       <g transform="rotate(-270,13.0,13.0)"><g filter="url(#mark)"><svg x="8.5" y="5.5" width="9" height="15" viewBox="-15 -15 90 150" preserveAspectRatio="none" overflow="visible">
   
   
-  <g fill="none" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+  <g fill="none" stroke-width="20" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4">
     
     <path id="rune-t" stroke="#c9c9c9" d="M30,0V120 M0,30L30,0L60,30"/>
     
-    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,30L60,60"/>
+    <path id="rune-a" stroke="#c9c9c9" d="M30,0V120 M30,0L60,30 M30,42L60,72"/>
     
     <path id="rune-n" stroke="#c9c9c9" d="M30,0V120 M10,75L50,105"/>
   </g>
@@ -162,12 +162,12 @@
   <g transform="translate(0,210) rotate(270)"><g>
       <rect width="184" height="26" fill="#a7adb4" filter="url(#grain-tile)"/>
       <path d="M0,1.4H184M0,24.6H184" stroke="#26262a" stroke-width="1.6"/>
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <g fill="none" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4">
       <path transform="translate(2.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(2.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#d2a54a" stroke-width="1.5"/>
-      <path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#d2a54a" stroke-width="1.5"/>
+      <path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(14.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(25.75,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(25.75,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(37.25,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(37.25,7.0)" d="M3,0V12M0,3L3,0L6,3" stroke="#d2a54a" stroke-width="1.5"/>
-      <path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,7L5,3" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,7L5,3" stroke="#d2a54a" stroke-width="1.5"/>
+      <path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,8.2L5,4.2" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(48.75,7.0)" d="M1,0V12M1,4L5,0M1,8.2L5,4.2" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(60.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(60.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(71.75,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(71.75,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(83.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(83.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#d2a54a" stroke-width="1.5"/>
@@ -175,7 +175,7 @@
       <circle cx="97.75" cy="15.5" r="1.5" fill="#5a4317"/><circle cx="97.75" cy="15.5" r="1.05" fill="#d2a54a"/>
       <path transform="translate(106.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(106.25,7.0)" d="M0,0V12M6,0V12M0,0L6,12M6,0L0,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(117.75,7.0)" d="M1,12V0L5,3L1,6L5,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(117.75,7.0)" d="M1,12V0L5,3L1,6L5,12" stroke="#d2a54a" stroke-width="1.5"/>
-      <path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,3L5,6" stroke="#d2a54a" stroke-width="1.5"/>
+      <path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(129.25,7.0)" d="M1,0V12M1,0L5,3M1,4.2L5,7.2" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(140.75,7.0)" d="M5,2L1,6L5,10" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(140.75,7.0)" d="M5,2L1,6L5,10" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(152.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(152.25,7.0)" d="M3,0L6,4L0,12M3,0L0,4L6,12" stroke="#d2a54a" stroke-width="1.5"/>
       <path transform="translate(163.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#5a4317" stroke-width="2.9"/><path transform="translate(163.75,7.0)" d="M3,0V12M1,4L5,7" stroke="#d2a54a" stroke-width="1.5"/>

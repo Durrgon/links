@@ -18,6 +18,10 @@ from pathlib import Path
 
 from make_avatar_frame import RUNES  # same rune shapes as the avatar ring
 
+# With flat, heavier strokes the parallel branches of ᚨ and ᚠ nearly touch and leave a
+# hairline gap, so on the border their second branch sits a little lower.
+RUNES = {**RUNES, "ᚨ": "M1,0V12M1,0L5,3M1,4.2L5,7.2", "ᚠ": "M1,0V12M1,4L5,0M1,8.2L5,4.2"}
+
 OUT = Path(__file__).resolve().parent.parent / "images" / "rune-border.svg"
 
 BAND = 26                  # band width = border-image slice
@@ -32,8 +36,10 @@ GOLD = "#d2a54a"           # rune fill
 GOLD_EDGE = "#5a4317"      # dark rim under the gold, so it reads as inlaid
 LINE = 1.6
 EDGE = 1.4                 # how far the carved edge lines sit inside the band
-RUNE_LINE = 2.4            # rune stroke width in the masks
-RUNE_OUTLINE = 4.6         # carved dark groove round each rune (lines mask), for contrast when small
+RUNE_LINE = 2.0            # rune stroke width in the masks
+RUNE_OUTLINE = 4.2         # carved dark groove round each rune (lines mask), for contrast when small
+# Runes are cut sharp: flat stroke ends and pointed corners, like chisel cuts.
+RUNE_CAPS = 'stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4"'
 DOT_R, DOT_OUTLINE_R = 1.5, 2.6
 
 # Corner mark: the NAT bind rune, read from its own file so it can be edited in any
@@ -194,7 +200,7 @@ def svg(mode="web", scale=1):
     tile = f"""<g id="tile">
       <rect width="{TILE}" height="{BAND}" fill="{stone}"{tile_fill}/>
       <path d="M0,{EDGE}H{TILE}M0,{BAND - EDGE}H{TILE}" stroke="{ink}" stroke-width="{LINE}"/>
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <g fill="none" {RUNE_CAPS}>
       {rune_marks(mode)}
       </g>
     </g>"""
