@@ -46,6 +46,7 @@
     key: 1.0,                  // key lights vs fill lights
     fill: 1.0,                 // even light (ambient) multiplier
     bump: 1.6,
+    sparkle: 1.0,              // glints on the metal
   };
   const aim = { x: null, y: null };          // null = the card's centre
   const pinned = { x: null, y: null };       // null = brightest spot of the video
@@ -147,6 +148,8 @@
   uniform vec2 uLightCone[${MAX_LIGHTS}];  // spotlights: cos(outer), cos(inner); x < -1 = point light
   uniform vec3 uAmbient;
   uniform vec3 uEnv;               // what the metal reflects
+  uniform float uSparkle;          // strength of the glints on the metal
+  uniform float uTime;
 
   // One axis of CSS border-image (round): returns source coord and its derivative per px.
   vec2 mapAxis(float x, float W) {
@@ -203,6 +206,19 @@
     float shin = mix(6.0, 90.0, 1.0 - rough);
 
     vec3 pos = vec3(screen, h0 * 6.0 * uDpr);
+
+    // Glint facets: screen cells of ~2.5 CSS px; about 1 in 6 can sparkle, only on metal.
+    vec2 gp = screen / (2.5 * uDpr);
+    vec2 gcell = floor(gp);
+    float gr = hash(gcell);
+    float glintCell = 0.0;
+    vec3 facet = n;
+    if (metal > 0.35 && gr > 0.84 && uSparkle > 0.0) {
+      float point = smoothstep(0.5, 0.0, length(fract(gp) - 0.5));         // a small round point
+      float twinkle = 0.8 + 0.2 * sin(uTime * 0.0013 + gr * 90.0);          // very slight
+      glintCell = point * twinkle;
+      facet = normalize(n + vec3(hash(gcell + 7.1) - 0.5, hash(gcell + 3.7) - 0.5, 0.0) * 0.5);
+    }
     vec3 v = vec3(0.0, 0.0, 1.0);
     // Fill light, plus a stand-in for the sky the metal reflects (Blender used an HDRI):
     // bright where the surface faces the viewer, a little darker on the bevels.
@@ -220,6 +236,12 @@
       vec3 h = normalize(L + v);
       float spec = pow(max(dot(n, h), 0.0), shin) * (shin + 8.0) / 40.0;
       col += spot * uLightCol[i] * (diffCol * wrap + specCol * spec * ndl);
+      // Glints: a few tiny facets on the metal, each tilted a little at random, flash when a
+      // light lines up with them, so they come and go as the lights drift.
+      if (glintCell > 0.0) {
+        float g = pow(max(dot(facet, h), 0.0), 160.0) * glintCell * ndl;
+        col += spot * uLightCol[i] * uMetal * g * uSparkle * 6.0;
+      }
     }
     col = col / (1.0 + col * 0.45);      // soft tone curve so highlights don't clip hard
     outColor = vec4(col * m.a, m.a);
@@ -546,6 +568,8 @@
     gl.uniform2f(U.uCanvas, w, h);
     gl.uniform1f(U.uDpr, dpr);
     gl.uniform1f(U.uBump, settings.bump);
+    gl.uniform1f(U.uSparkle, settings.sparkle);
+    gl.uniform1f(U.uTime, time);
     const ls = lights(time).slice(0, MAX_LIGHTS);
     gl.uniform3fv(U.uAmbient, scene.ambient.map(c => c * settings.fill));
     gl.uniform3fv(U.uEnv, scene.env);
@@ -605,11 +629,12 @@
       range("Key light", "key", 0, 3, 0.05) +
       range("Fill", "fill", 0, 2.5, 0.05) +
       range("Depth", "bump", 0, 6, 0.1) +
+      range("Sparkle", "sparkle", 0, 3, 0.05) +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
       select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
       select("Border metal", settings.border.metal, Object.keys(METALS), "border.metal") +
       select("Border stone", settings.border.stone, Object.keys(STONES), "border.stone") +
-      `<small>Shift+click: aim · Alt+click: pin light · <button type="button" data-reset>reset</button></small>` +
+      `<small>Shift+click: aim · Alt+click: pin light · L: hide · <button type="button" data-reset>reset</button></small>` +
       `<a href="${location.pathname}">Static version</a>`;
     p.addEventListener("input", e => {
       const key = e.target.dataset.set;
@@ -624,6 +649,7 @@
     });
     const style = document.createElement("style");
     style.textContent = `
+      .lit-panel[hidden] { display: none }
       .lit-panel { position: fixed; left: 12px; bottom: 12px; z-index: 20; display: grid;
         grid-template-columns: auto auto; gap: 4px 10px; align-items: center; padding: 10px 12px;
         font: 12px/1.3 system-ui, sans-serif; color: #e6e6ea; background: rgba(20, 21, 27, .85);
@@ -635,6 +661,13 @@
       html.lit .avatar-ring { visibility: hidden }
       html.lit .--site-main .--container-component.--instance-container02 { border-image: none !important }`;
     document.head.append(style);
+    // Hidden unless the URL has "panel" (?lit&panel); L shows/hides it.
+    p.hidden = !/[?&]panel(=|&|$)/.test(location.search);
+    addEventListener("keydown", e => {
+      if (e.key.toLowerCase() !== "l" || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (/^(input|select|textarea)$/i.test(e.target.tagName) || e.target.isContentEditable) return;
+      p.hidden = !p.hidden;
+    });
     document.body.append(p);
   }
 
