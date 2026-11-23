@@ -139,7 +139,7 @@ a:focus-visible {
 
 /* Rune border round the card: images/rune-border.webp, a 9-slice image rendered by
    scripts/render_frame_blender.py --variant border from scripts/make_rune_border.py
-   (silver runes on near-black stone, NAT bind runes in the corners). border-image
+   (gold runes on near-black stone, matching the live-lit defaults, NAT bind runes in the corners). border-image
    can't follow rounded corners, so the card's corners are square. */
 .--site-main .--container-component.--instance-container02 {
     border: 1.75rem solid transparent;
