@@ -11,7 +11,8 @@ repeats the side tiles around any box:
 The runes run clockwise round the box with their tops facing outward. Each tile
 is seamless (the stone grain is stitched), so any number of repeats joins up.
 
-Usage: python scripts/make_rune_border.py [--masks]   (--masks: Blender masks, see the end)
+Usage: python scripts/make_rune_border.py [--masks] [--psd]
+       --masks: Blender masks (see the end); --psd: export art/bind-rune.psd to edit
 """
 from pathlib import Path
 
@@ -35,11 +36,16 @@ RUNE_LINE = 2.4            # rune stroke width in the masks
 RUNE_OUTLINE = 4.6         # carved dark groove round each rune (lines mask), for contrast when small
 DOT_R, DOT_OUTLINE_R = 1.5, 2.6
 
-# Corner mark: a bind rune of ᚾ ᚨ ᛏ (the first three runes of the title) on one
-# stave, in the same 6 x 12 box as the runes: ᛏ's arrow on top, ᚨ sharing the
-# arrow's right arm plus its second branch below, ᚾ's cross-stroke lower down.
-BIND_RUNE = "M3,0V12 M0,3L3,0L6,3 M3,3L6,6 M1,7.5L5,10.5"
-BIND_SCALE = 1.45          # 12 * 1.45 = 17.4 of the 26-wide corner
+# Corner mark: the NAT bind rune, read from its own file so it can be edited in any
+# tool. Only its shape (alpha) is used; colours, outline and masks are made from it.
+# .svg: its viewBox is -10 -10 80 140 around a 60 x 120 rune box (an element with
+#       id="guide" is ignored). .psd / .png: an image with that same framing, e.g.
+#       one exported with --psd.
+ART = Path(__file__).resolve().parent.parent / "art"
+BIND_RUNE_FILE = ART / "bind-rune.svg"     # or ART / "bind-rune.psd"
+BIND_RUNE_HEIGHT = 17.4    # rune box height in the 26-wide corner
+MARK_RIM = 0.7             # web SVG: dark rim round the gold
+MARK_OUTLINE = 1.1         # masks: carved groove round the mark (like RUNE_OUTLINE)
 
 
 def grain(fid, w, h, raw=False):
@@ -57,6 +63,67 @@ def grain(fid, w, h, raw=False):
       <feBlend in="SourceGraphic" in2="grain" mode="multiply" result="textured"/>
       <feComposite in="textured" in2="SourceGraphic" operator="in"/>
     </filter>"""
+
+
+def bind_rune_art():
+    """The bind rune file as SVG markup, placed over the corner's centre."""
+    import base64
+    import re
+    import subprocess
+    f = BIND_RUNE_HEIGHT / 120                     # file units -> corner units
+    x, y = BAND / 2 - 30 * f - 10 * f, BAND / 2 - 60 * f - 10 * f
+    w, h = 80 * f, 140 * f
+    path = BIND_RUNE_FILE
+    if path.suffix.lower() == ".svg":
+        text = path.read_text(encoding="utf-8")
+        text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+        text = re.sub(r'<[^<>]*\bid="guide"[^<>]*/>', "", text)          # drop the guide box
+        view_box = re.search(r'viewBox="([^"]+)"', text).group(1)
+        inner = re.sub(r"^.*?<svg[^>]*>|</svg>\s*$", "", text, flags=re.S)
+        return (f'<svg x="{x:g}" y="{y:g}" width="{w:g}" height="{h:g}" viewBox="{view_box}" '
+                f'preserveAspectRatio="none" overflow="visible">{inner}</svg>')
+    # .psd / .png: flatten to PNG and embed it
+    source = f"{path}[0]" if path.suffix.lower() == ".psd" else str(path)
+    png = subprocess.run(["magick", source, "png:-"], check=True, capture_output=True).stdout
+    data = base64.b64encode(png).decode()
+    return (f'<image x="{x:g}" y="{y:g}" width="{w:g}" height="{h:g}" preserveAspectRatio="none" '
+            f'href="data:image/png;base64,{data}" xlink:href="data:image/png;base64,{data}"/>')
+
+
+def mark_filter(mode):
+    """Recolours the bind rune from its shape: gold with a dark rim (web), its outline
+    widened into the carved groove (lines mask), or plain white (other masks)."""
+    _, ink, gold, gold_edge = MODES[mode]
+    head = (f'<filter id="mark" filterUnits="userSpaceOnUse" x="0" y="0" width="{BAND}" height="{BAND}" '
+            f'color-interpolation-filters="sRGB">')
+    solid = lambda colour, src, out: (f'<feFlood flood-color="{colour}"/>'
+                                      f'<feComposite in2="{src}" operator="in" result="{out}"/>')
+    if mode == "web":
+        body = (f'<feMorphology in="SourceAlpha" operator="dilate" radius="{MARK_RIM}" result="rim"/>'
+                + solid(gold_edge, "rim", "rimc") + solid(gold, "SourceAlpha", "fill")
+                + '<feMerge><feMergeNode in="rimc"/><feMergeNode in="fill"/></feMerge>')
+    elif mode == "lines":
+        body = (f'<feMorphology in="SourceAlpha" operator="dilate" radius="{MARK_OUTLINE}" result="wide"/>'
+                + solid(ink, "wide", "out"))
+    else:
+        body = solid(gold, "SourceAlpha", "out")
+    return head + body + "</filter>"
+
+
+def export_psd():
+    """art/bind-rune.psd from art/bind-rune.svg (transparent, 4x), as a starting point."""
+    import re
+    import subprocess
+    import tempfile
+    out = ART / "bind-rune.psd"
+    text = (ART / "bind-rune.svg").read_text(encoding="utf-8")
+    text = re.sub(r'<[^<>]*\bid="guide"[^<>]*/>', "", text)       # the guide isn't part of the shape
+    with tempfile.NamedTemporaryFile("w", suffix=".svg", delete=False, encoding="utf-8") as f:
+        f.write(text)
+    subprocess.run(["magick", "-background", "none", "-density", "288", f.name,
+                    "-depth", "8", str(out)], check=True)
+    Path(f.name).unlink()
+    print("Wrote", out, "(set BIND_RUNE_FILE to it to use your edits)")
 
 
 # Colours per mode: the web SVG, or white-on-black masks for Blender.
@@ -111,22 +178,16 @@ def svg(mode="web", scale=1):
     # Corner: outer sides are top and left. The edge lines turn the corner, and the
     # NAT bind rune marks it, turned back upright whichever corner it is in.
     c = BAND / 2
-    k = BIND_SCALE
+    art = bind_rune_art()
 
     def corner(turn):
-        t = f"rotate({-turn},{c},{c}) translate({c - 3 * k},{c - 6 * k}) scale({k})"
-        if mode == "web":
-            mark = (f'<path transform="{t}" d="{BIND_RUNE}" stroke="{gold_edge}" stroke-width="{2.9 / k:.2f}"/>'
-                    f'<path transform="{t}" d="{BIND_RUNE}" stroke="{gold}" stroke-width="{1.5 / k:.2f}"/>')
-        elif mode == "lines":
-            mark = f'<path transform="{t}" d="{BIND_RUNE}" stroke="{ink}" stroke-width="{RUNE_OUTLINE / k:.2f}"/>'
-        else:
-            mark = f'<path transform="{t}" d="{BIND_RUNE}" stroke="{gold}" stroke-width="{RUNE_LINE / k:.2f}"/>'
+        mark = "" if mode == "grain" else (
+            f'<g transform="rotate({-turn},{c},{c})"><g filter="url(#mark)">{art}</g></g>')
         return f"""<g>
       <rect width="{BAND}" height="{BAND}" fill="{stone}"{corner_fill}/>
       <path d="M{BAND},{EDGE}H{EDGE}V{BAND}" stroke="{ink}" stroke-width="{LINE}" fill="none" stroke-linejoin="round"/>
       <path d="M{BAND},{BAND - EDGE}H{BAND - EDGE}V{BAND}" stroke="{ink}" stroke-width="{LINE}" fill="none"/>
-      <g fill="none" stroke-linecap="round" stroke-linejoin="round">{mark}</g>
+      {mark}
     </g>"""
 
     tile = tile.replace(' id="tile"', "")
@@ -143,12 +204,13 @@ def svg(mode="web", scale=1):
     uses = "\n  ".join(f'<g transform="{t}">{piece}</g>' for piece, t in place)
     background = "" if mode == "web" else f'<rect width="{S}" height="{S}" fill="#000"/>'
     raw = mode == "grain"
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{S * scale}" height="{S * scale}" viewBox="0 0 {S} {S}">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{S * scale}" height="{S * scale}" viewBox="0 0 {S} {S}">
   <!-- Generated by scripts/make_rune_border.py: edit that, then rerun it.
        CSS: border-image: url(rune-border.svg) {BAND} round; -->
   <defs>
     {grain("grain-tile", TILE, BAND, raw)}
     {grain("grain-corner", BAND, BAND, raw)}
+    {mark_filter(mode)}
   </defs>
   {background}
   {uses}
@@ -179,6 +241,8 @@ if __name__ == "__main__":
     import sys
     OUT.write_text(svg(), encoding="utf-8")
     print("Wrote", OUT, f"({S}x{S}; border-image slice {BAND})")
+    if "--psd" in sys.argv:
+        export_psd()
     if "--masks" in sys.argv:
         write_masks()
         print(f"Render: blender -b -P scripts/render_frame_blender.py -- --variant border --size {S * MASK_SCALE}"

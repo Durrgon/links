@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="280" viewBox="-10 -10 80 140">
+  <!-- NAT bind rune for the corners of the rune border (scripts/make_rune_border.py).
+       Edit freely: only the SHAPE is used (everything that isn't transparent), so
+       colours don't matter; stroke width, extra paths and filled shapes all work.
+       The rune box is 0,0 to 60,120 (dashed guide); the viewBox leaves a margin.
+       ᛏ arrow on top, ᚨ shares its right arm and adds a branch below, ᚾ crosses lower. -->
+  <rect x="0" y="0" width="60" height="120" fill="none" stroke="#7aa7ff" stroke-width="0.5"
+        stroke-dasharray="3 3" opacity="0.6" id="guide"/>
+  <path id="bind-rune" d="M30,0V120 M0,30L30,0L60,30 M30,30L60,60 M10,75L50,105"
+        fill="none" stroke="#c9c9c9" stroke-width="16.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

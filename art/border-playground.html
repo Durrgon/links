@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rune border playground</title>
+<style>
+  :root {
+    --bg: #1e1f26;
+    --panel: #2a2b34;
+    --text: #e6e6ea;
+    --muted: #9a9cab;
+    --border-w: 64px;
+    --strip-h: 120px;
+    --inside: #383947;
+    --repeat: round;
+  }
+  * { box-sizing: border-box }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.5 system-ui, sans-serif;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px }
+  p.note { color: var(--muted); margin: 0 0 16px; max-width: 70ch }
+  .controls {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px 24px;
+    align-items: center;
+    padding: 12px 16px;
+    margin: 0 -16px 20px;
+    background: var(--panel);
+    border-bottom: 1px solid #3a3b46;
+  }
+  label { display: flex; gap: 8px; align-items: center; color: var(--muted) }
+  output { color: var(--text); min-width: 4ch; font-variant-numeric: tabular-nums }
+  input[type=range] { width: 160px }
+  .variant { margin: 0 0 28px }
+  .variant h2 { font-size: 14px; font-weight: 600; margin: 0 0 8px }
+  .variant h2 small { color: var(--muted); font-weight: 400 }
+  .strip {
+    box-sizing: content-box;     /* strip height = the inside, not counting the border */
+    height: var(--strip-h);
+    border: var(--border-w) solid transparent;
+    border-image-repeat: var(--repeat);
+    background: var(--inside) padding-box;
+  }
+</style>
+</head>
+<body>
+<h1>Rune border playground</h1>
+<p class="note">
+  Each strip is a box using one border image, the same way the card does. The page uses
+  <code>border-image: url(images/rune-border.webp) 104 round</code> (silver on black slate).
+  Regenerate: <code>python scripts/make_rune_border.py --masks</code>, then render with
+  <code>scripts/render_frame_blender.py --variant border</code> (see README).
+</p>
+
+<div class="controls">
+  <label>Border width <input id="w" type="range" min="12" max="200" value="64"><output id="wv"></output></label>
+  <label>Strip height <input id="h" type="range" min="0" max="400" value="120"><output id="hv"></output></label>
+  <label>Repeat
+    <select id="r">
+      <option>round</option><option>repeat</option><option>space</option><option>stretch</option>
+    </select>
+  </label>
+  <label>Inside <input id="c" type="color" value="#383947"></label>
+  <label>Page <input id="b" type="color" value="#1e1f26"></label>
+</div>
+
+<div id="variants"></div>
+
+<script>
+  // [file, slice, title, note]
+  const VARIANTS = [
+    ["border-variants/silver-blackslate.webp", 104, "Silver on black slate", "on the page now"],
+    ["border-variants/gold-slate.webp", 104, "Gold on slate", "matches the avatar ring"],
+    ["border-variants/silver-slate.webp", 104, "Silver on slate", ""],
+    ["border-variants/gold-blackslate.webp", 104, "Gold on black slate", ""],
+    ["../images/rune-border.svg", 26, "Flat SVG", "no Blender lighting; sharp at any size"],
+  ];
+  const box = document.getElementById("variants");
+  for (const [file, slice, title, note] of VARIANTS) {
+    const section = document.createElement("section");
+    section.className = "variant";
+    section.innerHTML = `<h2>${title} <small>${note ? note + " · " : ""}${file.split("/").pop()}, slice ${slice}</small></h2>`;
+    const strip = document.createElement("div");
+    strip.className = "strip";
+    strip.style.borderImageSource = `url("${file}")`;
+    strip.style.borderImageSlice = slice;
+    section.append(strip);
+    box.append(section);
+  }
+
+  const root = document.documentElement.style;
+  const controls = {
+    w: v => { root.setProperty("--border-w", v + "px"); return v + "px" },
+    h: v => { root.setProperty("--strip-h", v + "px"); return v + "px" },
+    r: v => { root.setProperty("--repeat", v) },
+    c: v => { root.setProperty("--inside", v) },
+    b: v => { root.setProperty("--bg", v) },
+  };
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem("rune-border-playground") || "{}") } catch (e) {}
+  for (const [id, apply] of Object.entries(controls)) {
+    const input = document.getElementById(id);
+    if (saved[id] !== undefined) input.value = saved[id];
+    const update = () => {
+      const shown = apply(input.value);
+      const out = document.getElementById(id + "v");
+      if (out) out.textContent = shown;
+      saved[id] = input.value;
+      try { localStorage.setItem("rune-border-playground", JSON.stringify(saved)) } catch (e) {}
+    };
+    input.addEventListener("input", update);
+    update();
+  }
+</script>
+</body>
+</html>

@@ -25,3 +25,14 @@ Options: `--variant plain|head`, `--runes gold|silver|bronze|copper|iron|red`,
 `--hdri studio|forest|city|courtyard|interior|night|sunrise|sunset`,
 `--sun-azimuth`, `--sun-elevation`, `--sun-strength`, `--size`, `--samples`, `--out`.
 Renders go to `art/renders/` (not committed) with a transparent background.
+
+## Rune border
+
+`python scripts/make_rune_border.py [--masks] [--psd]` draws the 9-slice border
+(`images/rune-border.svg`, flat) and, with `--masks`, the Blender masks
+(`art/frame-masks/border-*.png`). The corner bind rune (ᚾ ᚨ ᛏ) comes from
+`art/bind-rune.svg`: edit it in any tool; only its shape is used. `--psd` exports
+`art/bind-rune.psd` to edit in Photoshop instead; point `BIND_RUNE_FILE` in the script
+at it to use it. The page's border is the Blender render `images/rune-border.webp`
+(slice 104). `art/border-playground.html` shows zoomed strips of each variant in
+`art/border-variants/`, with sliders.
