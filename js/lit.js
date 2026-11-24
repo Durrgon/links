@@ -43,6 +43,7 @@
     ballRadius: 300,           // phone tilt: radius of the ball's pool of light, CSS px
     ballRange: 25,             // phone tilt: degrees of tilt that take the ball to an edge
     camera: false,             // experimental: the front camera is the background and lights the card
+    cameraBlur: 14,            // camera: gaussian blur over it, CSS px
     from: "scene",             // viewer: lights sit in front of the screen, tilted towards
                                //   their spot in the scene; scene: right over the spot
     distance: 900,             // viewer mode: how far in front of the screen, CSS px
@@ -81,7 +82,7 @@
       if (cam.stream) cam.stream.getTracks().forEach(t => t.stop());
       cam.stream = null; cam.status = "";
       video.srcObject = null;
-      video.style.transform = "";
+      video.style.transform = video.style.filter = "";
       video.play().catch(() => {});
       return;
     }
@@ -91,18 +92,29 @@
     }
     cam.status = "camera: asking…";
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(
-        { video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      // the front (selfie) camera: required where the browser honours "exact", else preferred
+      const want = facing => ({ video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia(want({ exact: "user" }))
+        .catch(e => e.name === "OverconstrainedError" ? navigator.mediaDevices.getUserMedia(want("user")) : Promise.reject(e));
       if (!settings.camera) { stream.getTracks().forEach(t => t.stop()); return; }   // turned off while asking
       cam.stream = stream;
       video.srcObject = stream;
-      video.style.transform = "scaleX(-1)";
+      styleCamera();
       await video.play().catch(() => {});
-      cam.status = "camera: on";
+      const facing = (stream.getVideoTracks()[0].getSettings() || {}).facingMode;
+      cam.status = `camera: on${facing ? ` (${facing === "user" ? "front" : facing === "environment" ? "back" : facing})` : ""}`;
     } catch (e) {
       cam.status = `camera: ${e.name === "NotAllowedError" ? "permission refused" : e.name || "failed"}`;
       settings.camera = false; syncPanel();
     }
+  }
+  // Mirrored like a selfie view and blurred; scaled up a little so the blur's soft edges
+  // stay off screen.
+  function styleCamera() {
+    const blur = settings.cameraBlur;
+    video.style.filter = blur > 0 ? `blur(${blur}px)` : "";
+    const grow = 1 + Math.min(0.25, blur * 3 / Math.max(1, Math.min(video.offsetWidth, video.offsetHeight)));
+    video.style.transform = `scale(${(-grow).toFixed(3)}, ${grow.toFixed(3)})`;
   }
   let syncPanel = () => {};          // set by panel(): ticks the toggles to match settings
 
@@ -606,7 +618,13 @@
   // The first reading is "neutral", whatever angle the phone is held at; neutral drifts
   // slowly towards the current angle so it settles if the phone is put down at a new angle.
   // iPhones ask for permission, which needs a tap, so the first tap asks.
-  const motion = { active: false, gx: 0, gy: 0, x: 0, y: 0, base: null,
+  // Works like a joystick: the ball rests in the middle of the screen and the phone's tilt
+  // away from "neutral" pushes it out (gx, gy: -1..1 across the screen, eased so it never
+  // quite reaches an edge, and never a corner). Neutral is the first reading and settles
+  // towards however the phone is being held over a few seconds, so the ball comes home.
+  // Tilt is measured from the direction of "up" in the phone's own frame, which stays
+  // steady when the phone is held upright (left/right tilt alone jumps about there).
+  const motion = { active: false, gx: 0, gy: 0, x: 0, y: 0, up: null, base: null,
                    ball: null, last: 0 };
   // Debug (panel: "Show ball"): a dot where the ball is.
   // Solid ring = the edge of its pool of light, dashed ring = where it reaches full strength.
@@ -632,15 +650,26 @@
   function onOrientation(e) {
     motion.events = (motion.events || 0) + 1;
     if (e.beta === null || e.gamma === null) return;
-    const now = [e.gamma, e.beta];                 // left/right, front/back, degrees
-    motion.raw = now;
-    if (!motion.base) motion.base = now.slice();
-    motion.base[0] += (now[0] - motion.base[0]) * 0.0015;
-    motion.base[1] += (now[1] - motion.base[1]) * 0.0015;
-    const clamp = v => Math.max(-1, Math.min(1, v));
-    motion.gx = clamp((now[0] - motion.base[0]) / 25);
-    motion.gy = clamp((now[1] - motion.base[1]) / 25);
+    motion.raw = [e.gamma, e.beta];                // left/right, front/back, degrees
+    const b = e.beta * Math.PI / 180, g = e.gamma * Math.PI / 180;
+    // "up" in the phone's frame (x: right edge, y: top edge, z: out of the screen)
+    motion.up = [-Math.sin(g) * Math.cos(b), Math.sin(b), Math.cos(g) * Math.cos(b)];
+    if (!motion.base) motion.base = motion.up.slice();
     motion.active = true;
+  }
+  function updateJoystick(dt) {
+    const u = motion.up, base = motion.base;
+    const settle = 1 - Math.exp(-dt / 4);           // neutral follows the phone over ~4 s
+    for (let k = 0; k < 3; k++) base[k] += (u[k] - base[k]) * settle;
+    // tilt away from neutral, in the phone's frame: x towards its right edge, y towards
+    // its bottom edge (downhill = where the ball goes); sin(Tilt range) = full deflection
+    const full = Math.sin(settings.ballRange * Math.PI / 180);
+    let vx = -(u[0] - base[0]) / full, vy = (u[1] - base[1]) / full;
+    // turned sideways: the screen's axes are the phone's turned by the screen angle
+    const a = ((screen.orientation && screen.orientation.angle) || window.orientation || 0) * Math.PI / 180;
+    [vx, vy] = [vx * Math.cos(a) + vy * Math.sin(a), -vx * Math.sin(a) + vy * Math.cos(a)];
+    const len = Math.hypot(vx, vy), soft = len > 1e-6 ? Math.tanh(len) / len : 1;
+    motion.gx = vx * soft; motion.gy = vy * soft;
   }
   if ("DeviceOrientationEvent" in window) {
     if (typeof DeviceOrientationEvent.requestPermission === "function") {   // iOS asks on a tap
@@ -658,16 +687,14 @@
     if (!settings.motion || !motion.active) return null;
     const dt = Math.min(0.05, Math.max(0, (time - (motion.last || time)) / 1000));
     motion.last = time;
+    updateJoystick(dt);
     motion.x += (motion.gx - motion.x) * 0.15;      // smooth out sensor jitter (viewing angle)
     motion.y += (motion.gy - motion.y) * 0.15;
     const W = viewW(), H = viewH();
-    // The ball goes where the phone points: level = the middle of the screen, 25° of tilt
-    // = an edge. A stiff spring takes it there, so it keeps up with the phone's movement
-    // but glides instead of jumping, with no overshoot.
+    // The joystick's position on screen (see motion). A stiff spring takes the ball there,
+    // so it keeps up with the phone's movement but glides instead of jumping.
     const m = Math.min(W, H) * 0.06;
-    const reach = 25 / settings.ballRange;                     // motion.gx/gy are tilt / 25°
-    const tx = Math.max(m, Math.min(W - m, W / 2 + motion.gx * reach * (W / 2 - m)));
-    const ty = Math.max(m, Math.min(H - m, H / 2 + motion.gy * reach * (H / 2 - m)));
+    const tx = W / 2 + motion.gx * (W / 2 - m), ty = H / 2 + motion.gy * (H / 2 - m);
     if (!motion.ball) motion.ball = { x: tx, y: ty, vx: 0, vy: 0 };
     const b = motion.ball, K = 140, C = 2 * Math.sqrt(K);       // critically damped, ~0.15 s
     b.vx += (K * (tx - b.x) - C * b.vx) * dt;
@@ -1112,6 +1139,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       range("Sparkle", "sparkle", 0, 10, 0.05) +
       range("Ball radius", "ballRadius", 40, 1500, 10) +
       range("Tilt range°", "ballRange", 5, 60, 1) +
+      range("Camera blur", "cameraBlur", 0, 40, 1) +
       `<div class="lit-toggles">${toggle("Extreme sparkle", "extreme")}${toggle("Gold edges", "goldEdges")}` +
       `${toggle("Cursor light", "cursor")}${toggle("Phone tilt", "motion")}${toggle("Show ball", "showBall")}${toggle("Camera (experimental)", "camera")}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
@@ -1136,6 +1164,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       const [a, b] = key.split(".");
       if (b) settings[a][b] = value; else settings[a] = value;
       if (key === "camera") setCamera(value);
+      if (key === "cameraBlur" && cam.stream) styleCamera();
     });
     syncPanel = () => { for (const el of p.querySelectorAll("input[type=checkbox][data-set]")) el.checked = !!settings[el.dataset.set]; };
     p.querySelector("[data-close]").addEventListener("click", () => { p.hidden = true; });
