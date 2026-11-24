@@ -159,13 +159,17 @@
     return new Proxy({}, { get: (c, k) => c[k] ?? (c[k] = gl.getUniformLocation(p, k)) });
   }
 
-  function newTexture(gl, source, filter = gl.LINEAR) {
+  // mipmap: for masks drawn much smaller than their size (the ring: 1024 px drawn ~250 px
+  // across), so shrinking averages them instead of picking scattered texels, which left
+  // the thin runes broken up and mushy.
+  function newTexture(gl, source, filter = gl.LINEAR, mipmap = false) {
     const t = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
     if (source) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    if (mipmap && source) gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, mipmap && source ? gl.LINEAR_MIPMAP_LINEAR : filter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -1446,8 +1450,8 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
   }
 
   Promise.all([loadImage(BORDER.src), loadImage(RING.src)]).then(([b, r]) => {
-    texBorder = newTexture(gl, b);
-    texRing = newTexture(gl, r);
+    texBorder = newTexture(gl, b);   // no mipmaps: its 9-slice repeats would show seams
+    texRing = newTexture(gl, r, gl.LINEAR, true);
     document.body.append(canvas, guides);
     panel();
     if (window.route && window.route.flags.has("camera")) { settings.camera = true; syncPanel(); setCamera(true); }   // #camera
