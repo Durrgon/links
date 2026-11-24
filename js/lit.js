@@ -42,6 +42,7 @@
     showBall: false,           // debug: show where the phone-tilt ball is and what it lights
     ballRadius: 300,           // phone tilt: radius of the ball's pool of light, CSS px
     ballRange: 25,             // phone tilt: degrees of tilt that take the ball to an edge
+    camera: false,             // experimental: the front camera is the background and lights the card
     from: "scene",             // viewer: lights sit in front of the screen, tilted towards
                                //   their spot in the scene; scene: right over the spot
     distance: 900,             // viewer mode: how far in front of the screen, CSS px
@@ -66,6 +67,44 @@
   const video = document.querySelector(".bg-video");
   const card = document.querySelector(".--site-main .--container-component.--instance-container02");
   const ring = document.querySelector(".avatar-frame");
+
+  // Experimental (panel: "Camera", or the #camera flag): the front camera replaces the
+  // background video, so the lights come from the room the viewer is in. The camera stream
+  // goes into the background <video> itself, so everything that reads the background
+  // (where it is, the light sampling) works unchanged. Mirrored like a selfie view; the
+  // golden hour / night look is off (it is made for the video's sky). Needs https or
+  // localhost, and the browser asks for permission.
+  const cam = { stream: null, status: "" };
+  async function setCamera(on) {
+    if (!video) return;
+    if (!on) {
+      if (cam.stream) cam.stream.getTracks().forEach(t => t.stop());
+      cam.stream = null; cam.status = "";
+      video.srcObject = null;
+      video.style.transform = "";
+      video.play().catch(() => {});
+      return;
+    }
+    if (cam.stream) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      cam.status = "camera: not available here (needs https or localhost)"; settings.camera = false; syncPanel(); return;
+    }
+    cam.status = "camera: asking…";
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia(
+        { video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      if (!settings.camera) { stream.getTracks().forEach(t => t.stop()); return; }   // turned off while asking
+      cam.stream = stream;
+      video.srcObject = stream;
+      video.style.transform = "scaleX(-1)";
+      await video.play().catch(() => {});
+      cam.status = "camera: on";
+    } catch (e) {
+      cam.status = `camera: ${e.name === "NotAllowedError" ? "permission refused" : e.name || "failed"}`;
+      settings.camera = false; syncPanel();
+    }
+  }
+  let syncPanel = () => {};          // set by panel(): ticks the toggles to match settings
 
   // =====================================================================================
   // Shared WebGL helpers
@@ -541,8 +580,8 @@
     const diff = ((goal - shownHour + 36) % 24) - 12;          // -12..12
     shownHour = (shownHour + diff * (1 - Math.exp(-dt * 2.2)) + 24) % 24;
     const w = weightsAt(shownHour);
-    weights.golden = w.golden * intro.e;       // starts as day, eases into the scene
-    weights.night = w.night * intro.e;
+    weights.golden = cam.stream ? 0 : w.golden * intro.e;   // starts as day, eases into the scene
+    weights.night = cam.stream ? 0 : w.night * intro.e;
     const { rise, set } = sunTimes;
     bodyAt((shownHour - rise) / (set - rise), sun);
     const night = 24 - (set - rise) + 1;                       // the moon is up a little longer
@@ -680,11 +719,13 @@
   function sampleScene(time) {
     if (time - lastSample < 100) return;
     lastSample = time;
-    const playing = video && video.readyState >= 2 && video.currentSrc;
+    const playing = video && video.readyState >= 2 && (video.currentSrc || video.srcObject);
     const source = playing ? video : poster.complete && poster.naturalWidth ? poster : null;
     if (!source) return;
     let px;
     try {
+      // the camera is shown mirrored, so sample it mirrored too
+      sctx.setTransform(source === video && video.srcObject ? -1 : 1, 0, 0, 1, source === video && video.srcObject ? SX : 0, 0);
       sctx.drawImage(source, 0, 0, SX, SY);
       px = sctx.getImageData(0, 0, SX, SY).data;
     } catch (e) { return; }
@@ -961,6 +1002,7 @@
           ? ` · phone ${motion.raw[0].toFixed(0)}°, ${motion.raw[1].toFixed(0)}°` +
             (motion.ball ? ` · ball ${motion.ball.x.toFixed(0)}, ${motion.ball.y.toFixed(0)}` : "")
           : ` · phone tilt: no readings${motion.events ? "" : " (no events)"}`) : "") +
+        (cam.status ? ` · ${cam.status}` : "") +
         `
 Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     }
@@ -1071,7 +1113,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       range("Ball radius", "ballRadius", 40, 1500, 10) +
       range("Tilt range°", "ballRange", 5, 60, 1) +
       `<div class="lit-toggles">${toggle("Extreme sparkle", "extreme")}${toggle("Gold edges", "goldEdges")}` +
-      `${toggle("Cursor light", "cursor")}${toggle("Phone tilt", "motion")}${toggle("Show ball", "showBall")}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
+      `${toggle("Cursor light", "cursor")}${toggle("Phone tilt", "motion")}${toggle("Show ball", "showBall")}${toggle("Camera (experimental)", "camera")}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
       select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
       select("Border metal", settings.border.metal, Object.keys(METALS), "border.metal") +
@@ -1093,7 +1135,9 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       }
       const [a, b] = key.split(".");
       if (b) settings[a][b] = value; else settings[a] = value;
+      if (key === "camera") setCamera(value);
     });
+    syncPanel = () => { for (const el of p.querySelectorAll("input[type=checkbox][data-set]")) el.checked = !!settings[el.dataset.set]; };
     p.querySelector("[data-close]").addEventListener("click", () => { p.hidden = true; });
     p.querySelector("[data-replay]").addEventListener("click", () => { introStart = null; });
     p.querySelector("[data-reset]").addEventListener("click", () => {
@@ -1166,6 +1210,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     texRing = newTexture(gl, r);
     document.body.append(canvas, guides);
     panel();
+    if (window.route && window.route.flags.has("camera")) { settings.camera = true; syncPanel(); setCamera(true); }   // #camera
     document.documentElement.classList.add("lit");   // hide the static ring and border
     // the card and the canvas are shown together by frame() once everything has loaded
     if (video) loadImage(SKY_MASK).then(initNight).catch(e => console.warn("lit.js: no sky mask, no night mode", e));
