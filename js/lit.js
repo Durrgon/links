@@ -42,6 +42,10 @@
     showBall: false,           // debug: show where the phone-tilt ball is and what it lights
     ballRadius: 300,           // phone tilt: radius of the ball's pool of light, CSS px
     ballRange: 25,             // phone tilt: degrees of tilt that take the ball to an edge
+    goldButtons: true,         // a gold edge line around each link button
+    goldTitle: true,           // a gold line traced around the rune heading
+    goldSubtitle: true,        // the subtitle in lit gold instead of yellow
+    parallax: true,            // phone tilt shifts the banner a little inside its frame
     camera: false,             // experimental: a camera is the background and lights the card
     cameraFacing: "back",      // camera: back (facing away from the viewer) | front (selfie)
     cameraBlur: 14,            // camera: gaussian blur over it, CSS px
@@ -224,7 +228,7 @@
   in vec2 vLocal;
   out vec4 outColor;
   uniform sampler2D uTex;
-  uniform int uMode;              // 0 = border (9-slice), 1 = ring (whole texture)
+  uniform int uMode;              // 0 = border (9-slice), 1 = ring, 2 = decal (whole texture)
   uniform vec4 uRect;             // device px
   uniform float uBW;              // border width, device px
   uniform float uSlice;           // slice as a fraction of the texture
@@ -243,6 +247,8 @@
   uniform float uSparkle;          // strength of the glints on the metal
   uniform vec4 uGlint;             // cell size (CSS px), chance threshold, sharpness, gain
   uniform float uGoldEdges;        // 1: the band's edge lines (texture B) are raised gold
+  uniform float uDecal;            // > 0: a decal (gold drawn from a page element): all metal,
+                                   //   less sparkle; above 1, a faint glow so text stays readable
   uniform vec3 uView;              // direction to the viewer, in the card's own frame
   uniform float uTime;
 
@@ -266,7 +272,7 @@
   // Stone grain, measured in border widths (not screen px) so it scales with the runes
   // whatever size the border is drawn at: phones, browser zoom, pinch zoom.
   float grain(vec2 local) {
-    float unit = uMode == 0 ? uBW : uRect.z * 0.21;   // the ring is ~4.8 border widths across
+    float unit = uMode == 1 ? uRect.z * 0.21 : uBW;   // the ring is ~4.8 border widths across
     vec2 p = local / unit * 15.4;                       // = 0.55 per CSS px at the desktop size
     return 0.55 * noise(p) + 0.3 * noise(p * 2.3) + 0.15 * noise(p * 5.1);
   }
@@ -300,7 +306,7 @@
     float hy = heightOf(my1, grain(vLocal + vec2(0, 1)));
     vec3 n = normalize(vec3(-(hx - h0) * uBump * uDpr, -(hy - h0) * uBump * uDpr, 1.0));
 
-    float metal = smoothstep(0.2, 0.8, max(m.r, m.b * uGoldEdges));
+    float metal = max(smoothstep(0.2, 0.8, max(m.r, m.b * uGoldEdges)), min(uDecal, 1.0));
     float groove = m.g * (1.0 - metal);
     vec3 stone = mix(uStoneDark, uStoneLight, smoothstep(0.25, 0.75, g0));
     vec3 base = mix(stone, uStoneDark * 0.35, groove);
@@ -344,9 +350,11 @@
       // light lines up with them, so they come and go as the lights drift.
       if (glintCell > 0.0) {
         float g = pow(max(dot(facet, h), 0.0), uGlint.z) * glintCell * ndl;
-        col += spot * uLightCol[i] * mix(uMetal, vec3(1.0), 0.4) * g * uSparkle * uGlint.w;
+        col += spot * uLightCol[i] * mix(uMetal, vec3(1.0), 0.4) * g * uSparkle * uGlint.w
+             * (uDecal > 0.0 ? 0.3 : 1.0);
       }
     }
+    col += uMetal * max(0.0, uDecal - 1.0) * (0.6 + 0.4 * n.z);   // decal glow
     col = col / (1.0 + col * 0.45);      // soft tone curve so highlights don't clip hard
     outColor = vec4(col * m.a, m.a);
   }`;
@@ -1103,23 +1111,27 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       gl.uniform1f(U.uTileRatio, BORDER.tile / BORDER.slice);
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     }
+    // the ring and the decals only inside the card's border: on phones the card's
+    // contents can scroll behind the border
+    let scissor = null;
+    if (card) {
+      const [cx, cy, cw, ch] = rectOf(card, dpr);
+      const b = parseFloat(getComputedStyle(card).borderTopWidth) * dpr;
+      scissor = [Math.round(cx + b), Math.round(h - (cy + ch - b)),
+                 Math.max(0, Math.round(cw - 2 * b)), Math.max(0, Math.round(ch - 2 * b))];
+      gl.uniform1f(U.uBW, b);                 // decals: stone grain at the border's scale
+    }
     if (ring && texRing) {
       gl.bindTexture(gl.TEXTURE_2D, texRing);
       setMaterial("ring");
       gl.uniform1i(U.uMode, 1);
       gl.uniform4fv(U.uRect, rectOf(ring, dpr));
-      // only inside the card's border: on phones the card's contents (and so the ring)
-      // can scroll behind the border
-      if (card) {
-        const [cx, cy, cw, ch] = rectOf(card, dpr);
-        const b = parseFloat(getComputedStyle(card).borderTopWidth) * dpr;
-        gl.enable(gl.SCISSOR_TEST);
-        gl.scissor(Math.round(cx + b), Math.round(h - (cy + ch - b)),
-                   Math.max(0, Math.round(cw - 2 * b)), Math.max(0, Math.round(ch - 2 * b)));
-      }
+      if (scissor) { gl.enable(gl.SCISSOR_TEST); gl.scissor(...scissor); }
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       gl.disable(gl.SCISSOR_TEST);
     }
+    drawDecals(dpr, scissor);
+    parallax();
     if (!revealed && pageReady) {               // the card and the lit frame appear together,
       revealed = true;                          // complete; then the scene's transition starts
       canvas.style.opacity = "1";
@@ -1128,6 +1140,146 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     }
     requestAnimationFrame(frame);
   }
+
+  // =====================================================================================
+  // Gold decals: gold lit like the frame's metal, drawn from page elements. Each gets a
+  // mask made on a 2D canvas (R: height, a soft bevel; A: coverage) at its laid-out size,
+  // remade when that size, the fonts or the pixel ratio change:
+  //   buttons:  an edge line just inside each link button's rounded outline;
+  //   title:    a line traced around the rune heading's glyphs, a hair away from them;
+  //   subtitle: the subtitle's own glyphs (its text turns transparent, keeping its shadow).
+  // Text is placed glyph by glyph from the browser's own layout (Range rects), so it
+  // matches whatever font and fallback the page uses.
+  // =====================================================================================
+  const decals = [];
+  for (const a of document.querySelectorAll(".--buttons-component>.--li>.---a"))
+    decals.push({ el: a, kind: "button", set: "goldButtons" });
+  for (const [sel, kind, set] of [[".--instance-text01", "outline", "goldTitle"],
+                                  [".--instance-text03", "fill", "goldSubtitle"]]) {
+    const el = document.querySelector(sel);
+    if (el) decals.push({ el, kind, set, glow: kind === "fill" ? 0.45 : 0 });
+  }
+  const fontOf = cs => `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  const measureCtx = document.createElement("canvas").getContext("2d");
+  function glyphs(el) {               // [{ch, font, x, y (baseline)}], relative to el's box
+    const box = el.getBoundingClientRect(), out = [], range = document.createRange();
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let node; (node = walker.nextNode());) {
+      const text = node.textContent, font = fontOf(getComputedStyle(node.parentElement));
+      measureCtx.font = font;
+      for (let i = 0; i < text.length;) {
+        const len = text.codePointAt(i) > 0xffff ? 2 : 1, ch = text.slice(i, i + len);
+        if (ch.trim()) {
+          range.setStart(node, i); range.setEnd(node, i + len);
+          const r = range.getClientRects()[0];
+          if (r && r.width) {
+            const m = measureCtx.measureText(ch);
+            const asc = m.fontBoundingBoxAscent ?? m.actualBoundingBoxAscent;
+            const desc = m.fontBoundingBoxDescent ?? m.actualBoundingBoxDescent;
+            out.push({ ch, font, x: r.left - box.left, y: r.top - box.top + (r.height - (asc + desc)) / 2 + asc });
+          }
+        }
+        i += len;
+      }
+    }
+    return out;
+  }
+  function buildDecal(d, dpr) {
+    const w = d.el.offsetWidth, h = d.el.offsetHeight;
+    const pad = d.kind === "outline" ? 8 : 3;                    // CSS px around the element
+    const cw = Math.ceil((w + 2 * pad) * dpr), ch = Math.ceil((h + 2 * pad) * dpr);
+    if (cw < 2 || ch < 2) return;
+    const crisp = document.createElement("canvas");
+    crisp.width = cw; crisp.height = ch;
+    const c = crisp.getContext("2d", { willReadFrequently: true });
+    c.scale(dpr, dpr);
+    c.translate(pad, pad);
+    c.fillStyle = c.strokeStyle = "#fff";
+    c.lineJoin = "round";
+    let soft = 1;                                                 // bevel blur, CSS px
+    if (d.kind === "button") {
+      const r = Math.min(h / 2, parseFloat(getComputedStyle(d.el).borderTopLeftRadius) || h / 2);
+      const inset = 1.7;
+      c.lineWidth = 2.2;
+      c.beginPath();
+      c.roundRect(inset, inset, w - 2 * inset, h - 2 * inset, Math.max(0, r - inset));
+      c.stroke();
+      soft = 0.9;
+    } else {
+      const gs = glyphs(d.el);
+      if (!gs.length) return;
+      const size = parseFloat(getComputedStyle(d.el).fontSize);
+      if (d.kind === "outline") {           // a ring: a wide stroke minus the glyphs and a gap
+        const gap = Math.max(1, size * 0.03), lw = Math.max(1.6, size * 0.045);
+        const pass = (width, op) => {
+          c.globalCompositeOperation = op;
+          c.lineWidth = width;
+          for (const g of gs) {
+            c.font = g.font;
+            if (width) c.strokeText(g.ch, g.x, g.y); else c.fillText(g.ch, g.x, g.y);
+          }
+        };
+        pass(2 * (gap + lw), "source-over");
+        pass(2 * gap, "destination-out");
+        pass(0, "destination-out");
+        c.globalCompositeOperation = "source-over";
+        soft = lw * 0.45;
+      } else {
+        for (const g of gs) { c.font = g.font; c.fillText(g.ch, g.x, g.y); }
+        soft = Math.max(0.8, size * 0.05);
+      }
+    }
+    // R = the coverage blurred (a rounded bevel for the lighting), A = the coverage
+    const blurred = document.createElement("canvas");
+    blurred.width = cw; blurred.height = ch;
+    const b = blurred.getContext("2d", { willReadFrequently: true });
+    b.filter = `blur(${(soft * dpr).toFixed(2)}px)`;
+    b.drawImage(crisp, 0, 0);
+    const out = c.getImageData(0, 0, cw, ch), R = b.getImageData(0, 0, cw, ch).data;
+    const px = out.data;
+    for (let i = 0; i < px.length; i += 4) { px[i] = R[i + 3]; px[i + 1] = 0; px[i + 2] = 0; }
+    if (!d.tex) d.tex = newTexture(gl, null);
+    gl.bindTexture(gl.TEXTURE_2D, d.tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, out);
+    d.pad = pad; d.w = w; d.h = h;
+  }
+  function drawDecals(dpr, scissor) {
+    document.documentElement.classList.toggle("lit-gold-subtitle", settings.goldSubtitle);
+    const fontsReady = !document.fonts || document.fonts.status === "loaded";
+    let any = false;
+    for (const d of decals) {
+      if (!settings[d.set] || !fontsReady) continue;
+      const key = `${d.el.offsetWidth}x${d.el.offsetHeight}@${dpr}`;
+      if (d.key !== key) { d.key = key; buildDecal(d, dpr); }
+      if (!d.tex) continue;
+      if (!any) {
+        any = true;
+        setMaterial("border");
+        gl.uniform1i(U.uMode, 2);
+        if (scissor) { gl.enable(gl.SCISSOR_TEST); gl.scissor(...scissor); }
+      }
+      // laid-out size scaled to where it is now (the buttons shrink a little on hover)
+      const r = d.el.getBoundingClientRect(), sx = r.width / d.w, sy = r.height / d.h;
+      gl.bindTexture(gl.TEXTURE_2D, d.tex);
+      gl.uniform1f(U.uDecal, 1 + (d.glow || 0));
+      gl.uniform4f(U.uRect, (r.left - d.pad * sx) * dpr, (r.top - d.pad * sy) * dpr,
+                   (r.width + 2 * d.pad * sx) * dpr, (r.height + 2 * d.pad * sy) * dpr);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+    if (any) { gl.uniform1f(U.uDecal, 0); gl.disable(gl.SCISSOR_TEST); }
+  }
+
+  // Phone tilt shifts the banner a little inside its frame (the frame crops it, so it is
+  // scaled up just enough to keep its edges hidden).
+  const banner = document.querySelector(".--instance-image01 .--frame>img");
+  function parallax() {
+    if (!banner) return;
+    const on = settings.parallax && settings.motion && motion.active;
+    const t = on ? `translate(${(-motion.x * 9).toFixed(2)}px, ${(-motion.y * 5).toFixed(2)}px) scale(1.09)` : "";
+    if (banner.style.transform !== t) banner.style.transform = t;
+  }
+
 
   // =====================================================================================
   // Control panel
@@ -1173,6 +1325,8 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       select("Camera facing", settings.cameraFacing, ["back", "front"], "cameraFacing") +
       (window.seasons ? select("Season", window.seasons.state.season, ["none", "winter", "fall"], "season") : "") +
       `<div class="lit-toggles">${toggle("Extreme sparkle", "extreme")}${toggle("Gold edges", "goldEdges")}` +
+      `${toggle("Gold buttons", "goldButtons")}${toggle("Gold title", "goldTitle")}${toggle("Gold subtitle", "goldSubtitle")}` +
+      `${toggle("Banner parallax", "parallax")}` +
       `${toggle("Cursor light", "cursor")}${toggle("Phone tilt", "motion")}${toggle("Show ball", "showBall")}${toggle("Camera (experimental)", "camera")}${window.seasons ? toggle("Santa hat", "hat") : ""}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
       select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
@@ -1231,6 +1385,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       .lit-buttons a { color: #9ab4ff; margin-left: auto }
       html.lit { touch-action: manipulation }   /* quick taps don't double-tap zoom; pinch still works */
       html.lit .avatar-ring { visibility: hidden }
+      html.lit.lit-gold-subtitle .--instance-text03 { color: transparent }
       html.lit .--site-main .--container-component.--instance-container02 { border-image: none !important }`;
     document.head.append(style);
     // Hidden unless the URL has the "panel" flag (/lit/#panel, ?lit&panel); L shows/hides it.
