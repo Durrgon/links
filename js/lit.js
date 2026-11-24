@@ -945,7 +945,17 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       setMaterial("ring");
       gl.uniform1i(U.uMode, 1);
       gl.uniform4fv(U.uRect, rectOf(ring, dpr));
+      // only inside the card's border: on phones the card's contents (and so the ring)
+      // can scroll behind the border
+      if (card) {
+        const [cx, cy, cw, ch] = rectOf(card, dpr);
+        const b = parseFloat(getComputedStyle(card).borderTopWidth) * dpr;
+        gl.enable(gl.SCISSOR_TEST);
+        gl.scissor(Math.round(cx + b), Math.round(h - (cy + ch - b)),
+                   Math.max(0, Math.round(cw - 2 * b)), Math.max(0, Math.round(ch - 2 * b)));
+      }
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      gl.disable(gl.SCISSOR_TEST);
     }
     if (!revealed && pageReady) {               // the card and the lit frame appear together,
       revealed = true;                          // complete; then the scene's transition starts

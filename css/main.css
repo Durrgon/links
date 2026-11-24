@@ -175,3 +175,12 @@ html.loading .--site-main .--container-component.--instance-container02 {
 .--site-main .--container-component.--instance-container02 {
     transition: opacity 90ms ease-out
 }
+
+/* The page's outer wrappers are at least --viewport-height tall (set inline on <html> as
+   100vh). On phones 100vh is the height with the browser's toolbar hidden, so with the
+   toolbar showing the page scrolled into empty space; dvh is the visible height. */
+@supports (height: 100dvh) {
+    html {
+        --viewport-height: 100dvh !important
+    }
+}

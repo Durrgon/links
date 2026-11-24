@@ -709,14 +709,15 @@
         }
     }
 
-    /* Phones: the card fills the screen edge to edge (border along the screen's edges),
-       at least the full height with its contents at the top, a lighter see-through
+    /* Phones (narrow screens, and touch screens in landscape): the card fills the screen edge to edge (border along the screen's edges),
+       exactly the visible height with its contents at the top, a lighter see-through
        background, and text sized from the width (capped by the height so short phones
        don't scroll). */
-    @media screen and (max-width:736px) {
-        /* The card's contents are ~55 of these units tall; 1.7svh keeps them inside the
-           visible height even with the browser's toolbars showing (vh can be the height
-           without them). Browsers without svh use the vh line. */
+    @media screen and (max-width:736px), screen and (max-height:500px) and (pointer:coarse) {
+        /* Portrait: the card's contents are ~55 of these units tall; 1.7svh keeps them
+           inside the visible height even with the browser's toolbars showing (vh can be
+           the height without them; browsers without svh use the vh line). Landscape: too
+           short for that, so the text keeps its size and the contents scroll in the card. */
         html,
         .canvas-wrapper {
             font-size: max(9px, min(10.5pt, 3.6vw, 1.7vh));
@@ -737,12 +738,26 @@
             width: 100%
         }
 
+        /* exactly the visible screen: the border stays on the screen's edges and the
+           contents scroll inside it if they don't fit (landscape, say) */
         .--container-component.--instance-container02 {
-            min-height: 100vh;
-            min-height: 100dvh;
+            height: 100vh;
+            height: 100dvh;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, .3) transparent;
             background-color: rgba(56, 57, 71, 0.45);
             border-radius: 0;
             box-shadow: none;
             align-items: flex-start      /* banner right under the top border, spare space below */
+        }
+    }
+
+    @media screen and (orientation:landscape) and (max-height:500px) and (pointer:coarse),
+           screen and (orientation:landscape) and (max-width:736px) {
+        html,
+        .canvas-wrapper {
+            font-size: 10.5pt
         }
     }
