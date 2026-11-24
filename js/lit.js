@@ -45,7 +45,7 @@
     return { metal: 1, dark: c.map(v => v * 0.3), light: c.map(v => v * 0.6), spec: c, rough: name === "red" ? 0.65 : 0.38 };
   }
   const settings = {
-    ring: { stone: "slate", metal: "gold" },
+    ring: { stone: "white", metal: "gold" },
     border: { stone: "blackslate", metal: "gold" },
     light: "video",            // video | pointer | orbit
     scene: "auto",             // auto (viewer's local time) | day | sunset | night | custom
