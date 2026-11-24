@@ -42,7 +42,8 @@
     showBall: false,           // debug: show where the phone-tilt ball is and what it lights
     ballRadius: 300,           // phone tilt: radius of the ball's pool of light, CSS px
     ballRange: 25,             // phone tilt: degrees of tilt that take the ball to an edge
-    camera: false,             // experimental: the front camera is the background and lights the card
+    camera: false,             // experimental: a camera is the background and lights the card
+    cameraFacing: "back",      // camera: back (facing away from the viewer) | front (selfie)
     cameraBlur: 14,            // camera: gaussian blur over it, CSS px
     from: "scene",             // viewer: lights sit in front of the screen, tilted towards
                                //   their spot in the scene; scene: right over the spot
@@ -69,10 +70,12 @@
   const card = document.querySelector(".--site-main .--container-component.--instance-container02");
   const ring = document.querySelector(".avatar-frame");
 
-  // Experimental (panel: "Camera", or the #camera flag): the front camera replaces the
+  // Experimental (panel: "Camera", or the #camera flag): a camera (the back one by
+  // default, panel "Facing") replaces the
   // background video, so the lights come from the room the viewer is in. The camera stream
   // goes into the background <video> itself, so everything that reads the background
-  // (where it is, the light sampling) works unchanged. Mirrored like a selfie view; the
+  // (where it is, the light sampling) works unchanged. The front camera is mirrored like a
+  // selfie view; the
   // golden hour / night look is off (it is made for the video's sky). Needs https or
   // localhost, and the browser asks for permission.
   const cam = { stream: null, status: "" };
@@ -92,10 +95,11 @@
     }
     cam.status = "camera: asking…";
     try {
-      // the front (selfie) camera: required where the browser honours "exact", else preferred
+      // the chosen camera: required where the browser honours "exact", else preferred
+      const mode = settings.cameraFacing === "front" ? "user" : "environment";
       const want = facing => ({ video: { facingMode: facing, width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
-      const stream = await navigator.mediaDevices.getUserMedia(want({ exact: "user" }))
-        .catch(e => e.name === "OverconstrainedError" ? navigator.mediaDevices.getUserMedia(want("user")) : Promise.reject(e));
+      const stream = await navigator.mediaDevices.getUserMedia(want({ exact: mode }))
+        .catch(e => e.name === "OverconstrainedError" ? navigator.mediaDevices.getUserMedia(want(mode)) : Promise.reject(e));
       if (!settings.camera) { stream.getTracks().forEach(t => t.stop()); return; }   // turned off while asking
       cam.stream = stream;
       video.srcObject = stream;
@@ -108,13 +112,14 @@
       settings.camera = false; syncPanel();
     }
   }
-  // Mirrored like a selfie view and blurred; scaled up a little so the blur's soft edges
-  // stay off screen.
+  // Blurred, scaled up a little so the blur's soft edges stay off screen; the front camera
+  // mirrored like a selfie view.
+  const camMirrored = () => settings.cameraFacing === "front";
   function styleCamera() {
     const blur = settings.cameraBlur;
     video.style.filter = blur > 0 ? `blur(${blur}px)` : "";
     const grow = 1 + Math.min(0.25, blur * 3 / Math.max(1, Math.min(video.offsetWidth, video.offsetHeight)));
-    video.style.transform = `scale(${(-grow).toFixed(3)}, ${grow.toFixed(3)})`;
+    video.style.transform = `scale(${(camMirrored() ? -grow : grow).toFixed(3)}, ${grow.toFixed(3)})`;
   }
   let syncPanel = () => {};          // set by panel(): ticks the toggles to match settings
 
@@ -751,8 +756,9 @@
     if (!source) return;
     let px;
     try {
-      // the camera is shown mirrored, so sample it mirrored too
-      sctx.setTransform(source === video && video.srcObject ? -1 : 1, 0, 0, 1, source === video && video.srcObject ? SX : 0, 0);
+      // the front camera is shown mirrored, so sample it mirrored too
+      const flip = source === video && video.srcObject && camMirrored();
+      sctx.setTransform(flip ? -1 : 1, 0, 0, 1, flip ? SX : 0, 0);
       sctx.drawImage(source, 0, 0, SX, SY);
       px = sctx.getImageData(0, 0, SX, SY).data;
     } catch (e) { return; }
@@ -1140,6 +1146,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       range("Ball radius", "ballRadius", 40, 1500, 10) +
       range("Tilt range°", "ballRange", 5, 60, 1) +
       range("Camera blur", "cameraBlur", 0, 40, 1) +
+      select("Camera facing", settings.cameraFacing, ["back", "front"], "cameraFacing") +
       `<div class="lit-toggles">${toggle("Extreme sparkle", "extreme")}${toggle("Gold edges", "goldEdges")}` +
       `${toggle("Cursor light", "cursor")}${toggle("Phone tilt", "motion")}${toggle("Show ball", "showBall")}${toggle("Camera (experimental)", "camera")}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
@@ -1165,6 +1172,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       if (b) settings[a][b] = value; else settings[a] = value;
       if (key === "camera") setCamera(value);
       if (key === "cameraBlur" && cam.stream) styleCamera();
+      if (key === "cameraFacing" && settings.camera) { setCamera(false); setCamera(true); }
     });
     syncPanel = () => { for (const el of p.querySelectorAll("input[type=checkbox][data-set]")) el.checked = !!settings[el.dataset.set]; };
     p.querySelector("[data-close]").addEventListener("click", () => { p.hidden = true; });
