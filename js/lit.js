@@ -39,6 +39,7 @@
     scene: "auto",             // auto (viewer's local time) | day | sunset | night | custom
     hour: 12,                  // custom: hour of the day, 0..24
     guides: false,
+    showBall: false,           // debug: show where the phone-tilt ball is
     from: "scene",             // viewer: lights sit in front of the screen, tilted towards
                                //   their spot in the scene; scene: right over the spot
     distance: 900,             // viewer mode: how far in front of the screen, CSS px
@@ -567,9 +568,21 @@
   // iPhones ask for permission, which needs a tap, so the first tap asks.
   const motion = { active: false, gx: 0, gy: 0, x: 0, y: 0, base: null,
                    ball: null, last: 0 };
+  // Debug (panel: "Show ball"): a dot where the ball is.
+  const ballDot = document.createElement("div");
+  ballDot.setAttribute("aria-hidden", "true");
+  ballDot.style.cssText = "position:fixed;left:-9px;top:-9px;width:18px;height:18px;border-radius:50%;" +
+    "background:rgba(255,80,60,.85);box-shadow:0 0 0 2px #fff;pointer-events:none;z-index:21;display:none";
+  function drawBallDot() {
+    const b = motion.ball, on = settings.showBall && settings.motion && b;
+    ballDot.style.display = on ? "block" : "none";
+    if (on) ballDot.style.transform = `translate(${b.x.toFixed(1)}px, ${b.y.toFixed(1)}px)`;
+  }
   function onOrientation(e) {
+    motion.events = (motion.events || 0) + 1;
     if (e.beta === null || e.gamma === null) return;
     const now = [e.gamma, e.beta];                 // left/right, front/back, degrees
+    motion.raw = now;
     if (!motion.base) motion.base = now.slice();
     motion.base[0] += (now[0] - motion.base[0]) * 0.0015;
     motion.base[1] += (now[1] - motion.base[1]) * 0.0015;
@@ -928,6 +941,10 @@
       clock.textContent = `${String(hh).padStart(2, "0")}:${String(mm % 60).padStart(2, "0")}` +
         ` · golden ${weights.golden.toFixed(2)} · night ${weights.night.toFixed(2)}` +
         (settings.tilt ? ` · tilt ${tilt.yaw.toFixed(0)}°, ${tilt.pitch.toFixed(0)}°` : "") +
+        (settings.motion ? (motion.active
+          ? ` · phone ${motion.raw[0].toFixed(0)}°, ${motion.raw[1].toFixed(0)}°` +
+            (motion.ball ? ` · ball ${motion.ball.x.toFixed(0)}, ${motion.ball.y.toFixed(0)}` : "")
+          : ` · phone tilt: no readings${motion.events ? "" : " (no events)"}`) : "") +
         `
 Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     }
@@ -950,6 +967,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     gl.uniform1f(U.uGoldEdges, settings.goldEdges ? 1 : 0);
     gl.uniform1f(U.uTime, time);
     const cur = cursorLight(time) || motionLight(time);
+    drawBallDot();
     const ls = introLights(lights(time).slice(0, MAX_LIGHTS - (cur ? 1 : 0))).concat(cur ? [cur] : []);
     gl.uniform3fv(U.uAmbient, scene.ambient.map(c => c * settings.fill));
     gl.uniform3fv(U.uEnv, scene.env);
@@ -1019,7 +1037,8 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
              `<input id="${id}" type="range" ${attrs}>`;
     };
     p.innerHTML =
-      `<strong>Live lighting</strong>` +
+      `<div class="lit-head"><strong>Live lighting</strong>` +
+      `<button type="button" class="lit-close" data-close aria-label="Close the panel">×</button></div>` +
       select("Light", settings.light, ["video", "pointer", "orbit"], "light") +
       select("Scene", settings.scene, ["auto", "day", "sunset", "night", "custom"], "scene") +
       range("Hour", "hour", 0, 24, 0.25) +
@@ -1034,12 +1053,12 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       range("Depth", "bump", 0, 6, 0.1) +
       range("Sparkle", "sparkle", 0, 10, 0.05) +
       `<div class="lit-toggles">${toggle("Extreme sparkle", "extreme")}${toggle("Gold edges", "goldEdges")}` +
-      `${toggle("Cursor light", "cursor")}${toggle("Phone tilt", "motion")}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
+      `${toggle("Cursor light", "cursor")}${toggle("Phone tilt", "motion")}${toggle("Show ball", "showBall")}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
       select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
       select("Border metal", settings.border.metal, Object.keys(METALS), "border.metal") +
       select("Border stone", settings.border.stone, Object.keys(STONES), "border.stone") +
-      `<small>Shift+click: aim · Alt+click: pin light · WASD: tilt (if on) · R: untilt · L: hide</small>` +
+      `<small>Shift+click: aim · Alt+click: pin light · WASD: tilt (if on) · R: untilt · L or 6 quick taps: show/hide</small>` +
       `<div class="lit-buttons"><button type="button" data-reset>Reset aim</button><button type="button" data-replay>Replay intro</button>` +
       `<a href="${window.route ? window.route.staticUrl : "static/"}">Static version</a></div>`;
     p.addEventListener("input", e => {
@@ -1057,6 +1076,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       const [a, b] = key.split(".");
       if (b) settings[a][b] = value; else settings[a] = value;
     });
+    p.querySelector("[data-close]").addEventListener("click", () => { p.hidden = true; });
     p.querySelector("[data-replay]").addEventListener("click", () => { introStart = null; });
     p.querySelector("[data-reset]").addEventListener("click", () => {
       aim.x = aim.y = pinned.x = pinned.y = null;
@@ -1065,11 +1085,16 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     style.textContent = `
       .lit-panel[hidden] { display: none }
       .lit-panel { position: fixed; left: 10px; bottom: 10px; z-index: 20; box-sizing: border-box;
-        width: 290px; max-width: calc(100vw - 20px); max-height: calc(100vh - 20px); overflow-y: auto;
+        width: 290px; max-width: calc(100vw - 20px); max-height: calc(100vh - 20px);
+        max-height: calc(100dvh - 20px); overflow-y: auto; overscroll-behavior: contain;
         display: grid; grid-template-columns: 74px 52px 1fr; gap: 3px 6px; align-items: center;
         padding: 8px 10px; font: 11px/1.3 system-ui, sans-serif; color: #e6e6ea;
         background: rgba(20, 21, 27, .88); border-radius: 8px }
-      .lit-panel strong, .lit-panel small, .lit-toggles, .lit-buttons { grid-column: 1 / -1 }
+      .lit-panel small, .lit-head, .lit-toggles, .lit-buttons { grid-column: 1 / -1 }
+      .lit-head { display: flex; align-items: center; justify-content: space-between }
+      .lit-panel .lit-close { font-size: 20px; line-height: 1; width: 32px; height: 32px; margin: -6px -6px -6px 0;
+        border: 0; border-radius: 6px; background: none; color: #e6e6ea; cursor: pointer }
+      .lit-panel .lit-close:hover, .lit-panel .lit-close:focus-visible { background: rgba(255, 255, 255, .12) }
       .lit-panel small { color: #9a9cab; overflow-wrap: anywhere }
       .lit-panel [data-clock] { white-space: pre-line }
       .lit-panel select { grid-column: 2 / -1 }
@@ -1079,6 +1104,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       .lit-toggles, .lit-buttons { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center }
       .lit-toggle { display: inline-flex; gap: 4px; align-items: center }
       .lit-buttons a { color: #9ab4ff; margin-left: auto }
+      html.lit { touch-action: manipulation }   /* quick taps don't double-tap zoom; pinch still works */
       html.lit .avatar-ring { visibility: hidden }
       html.lit .--site-main .--container-component.--instance-container02 { border-image: none !important }`;
     document.head.append(style);
@@ -1089,7 +1115,17 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       if (/^(input|select|textarea)$/i.test(e.target.tagName) || e.target.isContentEditable) return;
       p.hidden = !p.hidden;
     });
-    document.body.append(p);
+    // Phones have no L key: 6 quick taps on the page (not on a link or a control) show/hide it.
+    const taps = [];
+    addEventListener("pointerdown", e => {
+      if (e.target.closest("a, button, input, select, label, .lit-panel")) return;
+      const now = performance.now();
+      taps.push(now);
+      while (taps.length && now - taps[0] > 2500) taps.shift();
+      // toggled a moment later, so this tap's click doesn't land on the panel as it appears
+      if (taps.length >= 6) { taps.length = 0; setTimeout(() => { p.hidden = !p.hidden; }, 400); }
+    }, { passive: true });
+    document.body.append(p, ballDot);
     clock = p.querySelector("[data-clock]");
   }
 
