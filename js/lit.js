@@ -32,6 +32,15 @@
     silver: [0.92, 0.92, 0.94],
     red: [0.62, 0.10, 0.08],
   };
+  // Every stone and metal can be either part: the stone (the band) or the runes (and the
+  // gold edges and decals, which follow the border's runes). Gold stone is a metal band;
+  // slate runes are carved stone.
+  const MATERIALS = Object.keys(STONES).concat(Object.keys(METALS));
+  function material(name) {
+    if (STONES[name]) return { metal: 0, dark: STONES[name][0], light: STONES[name][1], spec: [0.04, 0.04, 0.04], rough: 0.8 };
+    const c = METALS[name] || METALS.gold;
+    return { metal: 1, dark: c.map(v => v * 0.3), light: c.map(v => v * 0.6), spec: c, rough: name === "red" ? 0.65 : 0.38 };
+  }
   const settings = {
     ring: { stone: "slate", metal: "gold" },
     border: { stone: "blackslate", metal: "gold" },
@@ -241,6 +250,10 @@
   uniform float uBump;
   uniform vec3 uStoneDark, uStoneLight, uMetal;
   uniform float uMetalRough;
+  // the band: stone (diffuse dark..light) or metal (uStoneSpec, uStoneRough); the runes:
+  // metal (uMetal, uMetalRough) or stone (diffuse uRuneDark..uRuneLight)
+  uniform vec3 uStoneSpec, uRuneDark, uRuneLight;
+  uniform float uStoneMet, uStoneRough, uRuneMet;
   uniform int uLightCount;
   uniform vec3 uLightPos[${MAX_LIGHTS}];   // device px, z = height
   uniform vec3 uLightCol[${MAX_LIGHTS}];
@@ -313,13 +326,18 @@
     float hy = heightOf(my1, grain(vLocal + vec2(0, 1)));
     vec3 n = normalize(vec3(-(hx - h0) * uBump * uDpr, -(hy - h0) * uBump * uDpr, 1.0));
 
-    float metal = max(smoothstep(0.2, 0.8, max(m.r, m.b * uGoldEdges)), min(uDecal, 1.0));
-    float groove = m.g * (1.0 - metal);
-    vec3 stone = mix(uStoneDark, uStoneLight, smoothstep(0.25, 0.75, g0));
+    // rune: how much of this pixel is rune (or gold edge / decal) rather than band
+    float rune = max(smoothstep(0.2, 0.8, max(m.r, m.b * uGoldEdges)), min(uDecal, 1.0));
+    float groove = m.g * (1.0 - rune);
+    float speckle = smoothstep(0.25, 0.75, g0);
+    vec3 stone = mix(uStoneDark, uStoneLight, speckle);
     vec3 base = mix(stone, uStoneDark * 0.35, groove);
-    float rough = mix(0.8, uMetalRough, metal);
-    vec3 diffCol = base * (1.0 - metal);
-    vec3 specCol = mix(vec3(0.04), uMetal, metal);
+    vec3 runeStone = mix(uRuneDark, uRuneLight, speckle);
+    float metal = mix(uStoneMet, uRuneMet, rune);             // how metallic this pixel is
+    float rough = mix(mix(0.8, uStoneRough, uStoneMet), mix(0.8, uMetalRough, uRuneMet), rune);
+    vec3 diffCol = mix(base * (1.0 - uStoneMet), runeStone * (1.0 - uRuneMet), rune);
+    vec3 specCol = mix(mix(vec3(0.04), uStoneSpec, uStoneMet) * (1.0 - groove * 0.6),
+                       mix(vec3(0.04), uMetal, uRuneMet), rune);
     float shin = mix(6.0, 90.0, 1.0 - rough);
 
     vec3 pos = vec3(screen, h0 * 6.0 * uDpr);
@@ -357,11 +375,11 @@
       // light lines up with them, so they come and go as the lights drift.
       if (glintCell > 0.0) {
         float g = pow(max(dot(facet, h), 0.0), uGlint.z) * glintCell * ndl;
-        col += spot * uLightCol[i] * mix(uMetal, vec3(1.0), 0.4) * g * uSparkle * uGlint.w
+        col += spot * uLightCol[i] * mix(specCol, vec3(1.0), 0.4) * g * uSparkle * uGlint.w
              * (uDecal > 0.0 ? 0.3 : 1.0);
       }
     }
-    col += uMetal * max(0.0, uDecal - 1.0) * (0.6 + 0.4 * n.z);   // decal glow
+    col += mix(runeStone, uMetal, uRuneMet) * max(0.0, uDecal - 1.0) * (0.6 + 0.4 * n.z);   // decal glow
     col = col / (1.0 + col * 0.45);      // soft tone curve so highlights don't clip hard
     outColor = vec4(col * m.a, m.a);
   }`;
@@ -986,11 +1004,17 @@
   const fmt = h => `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.floor((h % 1) * 60)).padStart(2, "0")}`;
 
   function setMaterial(which) {
-    const m = settings[which];
-    gl.uniform3fv(U.uStoneDark, STONES[m.stone][0]);
-    gl.uniform3fv(U.uStoneLight, STONES[m.stone][1]);
-    gl.uniform3fv(U.uMetal, METALS[m.metal]);
-    gl.uniform1f(U.uMetalRough, m.metal === "red" ? 0.65 : 0.38);
+    const m = settings[which], band = material(m.stone), runes = material(m.metal);
+    gl.uniform3fv(U.uStoneDark, band.dark);
+    gl.uniform3fv(U.uStoneLight, band.light);
+    gl.uniform3fv(U.uStoneSpec, band.spec);
+    gl.uniform1f(U.uStoneMet, band.metal);
+    gl.uniform1f(U.uStoneRough, band.rough);
+    gl.uniform3fv(U.uMetal, runes.spec);
+    gl.uniform1f(U.uMetalRough, runes.rough);
+    gl.uniform3fv(U.uRuneDark, runes.dark);
+    gl.uniform3fv(U.uRuneLight, runes.light);
+    gl.uniform1f(U.uRuneMet, runes.metal);
   }
 
   // Rects as laid out, without the tilt (the canvas gets the same tilt as the card).
@@ -1362,10 +1386,10 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       `${toggle("Gold buttons", "goldButtons")}${toggle("Gold title", "goldTitle")}${toggle("Gold subtitle", "goldSubtitle")}` +
       `${toggle("Banner parallax", "parallax")}` +
       `${toggle("Cursor light", "cursor")}${toggle("Phone tilt", "motion")}${toggle("Show ball", "showBall")}${toggle("Camera (experimental)", "camera")}${window.seasons ? toggle("Santa hat", "hat") : ""}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
-      select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
-      select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
-      select("Border metal", settings.border.metal, Object.keys(METALS), "border.metal") +
-      select("Border stone", settings.border.stone, Object.keys(STONES), "border.stone") +
+      select("Ring runes", settings.ring.metal, MATERIALS, "ring.metal") +
+      select("Ring stone", settings.ring.stone, MATERIALS, "ring.stone") +
+      select("Border runes", settings.border.metal, MATERIALS, "border.metal") +
+      select("Border stone", settings.border.stone, MATERIALS, "border.stone") +
       `<small>Shift+click: aim · Alt+click: pin light · WASD: tilt (if on) · R: untilt · L or 6 quick taps: show/hide</small>` +
       `<div class="lit-buttons"><button type="button" data-reset>Reset aim</button><button type="button" data-replay>Replay intro</button>` +
       `<a href="${window.route ? window.route.staticUrl : "static/"}">Static version</a></div>`;
