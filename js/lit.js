@@ -1143,9 +1143,20 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       // toggled a moment later, so this tap's click doesn't land on the panel as it appears
       if (taps.length >= 6) {
         taps.length = 0;
-        setTimeout(() => { p.hidden = !p.hidden; getSelection().removeAllRanges(); }, 400);  // quick taps select words
+        streakEnd = now + 1200;
+        // quick taps select words (and Android shows its Copy/Search bar), so clear any
+        // selection now and again once the taps have settled
+        const unselect = () => getSelection().removeAllRanges();
+        unselect();
+        setTimeout(() => { p.hidden = !p.hidden; unselect(); }, 400);
+        setTimeout(unselect, 900);
       }
     }, { passive: true });
+    // no selecting text in the middle of a tap streak (3+ quick taps) or just after it
+    let streakEnd = 0;
+    addEventListener("selectstart", e => {
+      if (taps.length >= 3 || performance.now() < streakEnd) e.preventDefault();
+    });
     document.body.append(p, ballDot);
     clock = p.querySelector("[data-clock]");
   }
