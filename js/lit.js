@@ -120,6 +120,13 @@
   // Where the picture is drawn: the video element is object-fit: cover, positioned 50% 0%
   // (css/carrd-canvas.css), so the picture can be larger than the element and cropped.
   // Returns {left, top, width, height} relative to the element's own box.
+  // The page's own window size (the layout viewport), which pinch zoom doesn't change.
+  // innerWidth/innerHeight shrink to the zoomed-in part on Firefox for Android, which
+  // stretched the lighting over the page. The page never scrolls (on phones only the card
+  // does), so this is also exactly the visible screen.
+  const viewW = () => document.documentElement.clientWidth || window.innerWidth;
+  const viewH = () => document.documentElement.clientHeight || window.innerHeight;
+
   function pictureInElement(w, h) {
     const iw = video.videoWidth || poster.naturalWidth || 1920;
     const ih = video.videoHeight || poster.naturalHeight || 1080;
@@ -129,7 +136,7 @@
   }
   function videoRect() {             // on screen, CSS px
     const r = video && video.getBoundingClientRect();
-    if (!r || !r.width) return { left: 0, top: 0, width: innerWidth, height: innerHeight };
+    if (!r || !r.width) return { left: 0, top: 0, width: viewW(), height: viewH() };
     const p = pictureInElement(r.width, r.height);
     return { left: r.left + p.left, top: r.top + p.top, width: p.width, height: p.height };
   }
@@ -197,8 +204,11 @@
     vec2 u = f * f * (3.0 - 2.0 * f);
     return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
   }
-  float grain(vec2 screen) {            // stone grain in CSS px, so it stays seamless
-    vec2 p = screen / uDpr * 0.55;
+  // Stone grain, measured in border widths (not screen px) so it scales with the runes
+  // whatever size the border is drawn at: phones, browser zoom, pinch zoom.
+  float grain(vec2 local) {
+    float unit = uMode == 0 ? uBW : uRect.z * 0.21;   // the ring is ~4.8 border widths across
+    vec2 p = local / unit * 15.4;                       // = 0.55 per CSS px at the desktop size
     return 0.55 * noise(p) + 0.3 * noise(p * 2.3) + 0.15 * noise(p * 5.1);
   }
 
@@ -224,11 +234,11 @@
     vec2 screen = uRect.xy + vLocal;
 
     // Height: runes raised, grooves sunk, a little grain; normals from neighbouring samples.
-    float g0 = grain(screen);
+    float g0 = grain(vLocal);
     float h0 = heightOf(m, g0);
     vec4 mx1 = texture(uTex, uv + du), my1 = texture(uTex, uv + dv);
-    float hx = heightOf(mx1, grain(screen + vec2(1, 0)));
-    float hy = heightOf(my1, grain(screen + vec2(0, 1)));
+    float hx = heightOf(mx1, grain(vLocal + vec2(1, 0)));
+    float hy = heightOf(my1, grain(vLocal + vec2(0, 1)));
     vec3 n = normalize(vec3(-(hx - h0) * uBump * uDpr, -(hy - h0) * uBump * uDpr, 1.0));
 
     float metal = smoothstep(0.2, 0.8, max(m.r, m.b * uGoldEdges));
@@ -539,7 +549,7 @@
   // =====================================================================================
   // Lights
   // =====================================================================================
-  const pointer = { x: innerWidth * 0.3, y: innerHeight * 0.2 };
+  const pointer = { x: viewW() * 0.3, y: viewH() * 0.2 };
   addEventListener("pointermove", e => {
     pointer.x = e.clientX; pointer.y = e.clientY; pointer.moved = performance.now(); pointer.inside = true;
   }, { passive: true });
@@ -548,43 +558,58 @@
   // The mouse as a small light: a soft pool around the pointer, bright while it moves and
   // fading out after a moment of stillness, so it can be raked across the metal.
   const cursorGlow = { level: 0, last: 0 };
-  // Phones: tilting the phone (gyroscope/accelerometer via deviceorientation) moves a soft
-  // light across the frame and shifts the viewing angle, so reflections and glints move.
+  // Phones: tilting the phone (gyroscope/accelerometer via deviceorientation) rolls an
+  // invisible ball around the screen that carries a soft light, and shifts the viewing
+  // angle, so reflections and glints move. The ball speeds up downhill, slows by rolling
+  // friction and bounces off the screen's edges.
   // The first reading is "neutral", whatever angle the phone is held at; neutral drifts
   // slowly towards the current angle so it settles if the phone is put down at a new angle.
   // iPhones ask for permission, which needs a tap, so the first tap asks.
-  const motion = { active: false, gx: 0, gy: 0, x: 0, y: 0, base: null };
+  const motion = { active: false, gx: 0, gy: 0, x: 0, y: 0, base: null,
+                   ball: null, last: 0 };
   function onOrientation(e) {
     if (e.beta === null || e.gamma === null) return;
     const now = [e.gamma, e.beta];                 // left/right, front/back, degrees
     if (!motion.base) motion.base = now.slice();
-    motion.base[0] += (now[0] - motion.base[0]) * 0.004;
-    motion.base[1] += (now[1] - motion.base[1]) * 0.004;
+    motion.base[0] += (now[0] - motion.base[0]) * 0.0015;
+    motion.base[1] += (now[1] - motion.base[1]) * 0.0015;
     const clamp = v => Math.max(-1, Math.min(1, v));
     motion.gx = clamp((now[0] - motion.base[0]) / 25);
     motion.gy = clamp((now[1] - motion.base[1]) / 25);
     motion.active = true;
   }
   if ("DeviceOrientationEvent" in window) {
-    if (typeof DeviceOrientationEvent.requestPermission === "function") {   // iOS
+    if (typeof DeviceOrientationEvent.requestPermission === "function") {   // iOS asks on a tap
       addEventListener("touchend", function ask() {
         removeEventListener("touchend", ask);
-        DeviceOrientationEvent.requestPermission()
-          .then(r => { if (r === "granted") addEventListener("deviceorientation", onOrientation); })
-          .catch(() => {});
+        DeviceOrientationEvent.requestPermission().catch(() => {});
       });
-    } else {
-      addEventListener("deviceorientation", onOrientation);
     }
+    // Chrome and Edge also have requestPermission now, but grant it without asking;
+    // Firefox doesn't have it. So always listen, and ask as well where it exists.
+    addEventListener("deviceorientation", onOrientation);
   }
-  function motionLight() {
+  function motionLight(time) {
     if (!settings.motion || !motion.active) return null;
-    motion.x += (motion.gx - motion.x) * 0.15;      // smooth out sensor jitter
+    const dt = Math.min(0.05, Math.max(0, (time - (motion.last || time)) / 1000));
+    motion.last = time;
+    motion.x += (motion.gx - motion.x) * 0.15;      // smooth out sensor jitter (viewing angle)
     motion.y += (motion.gy - motion.y) * 0.15;
-    const [ax, ay] = aimPoint();
+    const W = viewW(), H = viewH();
+    if (!motion.ball) { const [ax, ay] = aimPoint(); motion.ball = { x: ax, y: ay, vx: 0, vy: 0 }; }
+    const b = motion.ball, g = 2.2 * Math.max(W, H);           // full tilt: ~2 screens/s²
+    b.vx += Math.sin(motion.x * 25 * Math.PI / 180) * g * dt;  // motion.x/y = tilt / 25°
+    b.vy += Math.sin(motion.y * 25 * Math.PI / 180) * g * dt;
+    const f = Math.exp(-dt * 1.4);                             // rolling friction
+    b.vx *= f; b.vy *= f;
+    b.x += b.vx * dt; b.y += b.vy * dt;
+    const m = Math.min(W, H) * 0.06;                           // bounce a little inside the edges
+    if (b.x < m) { b.x = m; b.vx = Math.abs(b.vx) * 0.45; }
+    if (b.x > W - m) { b.x = W - m; b.vx = -Math.abs(b.vx) * 0.45; }
+    if (b.y < m) { b.y = m; b.vy = Math.abs(b.vy) * 0.45; }
+    if (b.y > H - m) { b.y = H - m; b.vy = -Math.abs(b.vy) * 0.45; }
     const k = 0.95 * settings.strength;
-    return { pos: [ax + motion.x * innerWidth * 0.7, ay + motion.y * innerHeight * 0.45, 220],
-             col: [1.1 * k, 1.05 * k, 0.95 * k] };
+    return { pos: [b.x, b.y, 200], col: [1.1 * k, 1.05 * k, 0.95 * k] };
   }
 
   function cursorLight(time) {
@@ -677,7 +702,7 @@
   function aimPoint() {
     if (aim.x !== null) return [aim.x, aim.y];
     const r = card ? layout.get(card) || card.getBoundingClientRect()
-                   : { left: 0, top: 0, width: innerWidth, height: innerHeight };
+                   : { left: 0, top: 0, width: viewW(), height: viewH() };
     return [r.left + r.width / 2, r.top + r.height / 2];
   }
 
@@ -742,8 +767,8 @@
     let x = pointer.x, y = pointer.y;
     if (settings.light === "orbit" && !reduceMotion) {
       const a = time / 4000;
-      x = innerWidth / 2 + Math.cos(a) * innerWidth * 0.35;
-      y = innerHeight / 2 + Math.sin(a) * innerHeight * 0.35;
+      x = viewW() / 2 + Math.cos(a) * viewW() * 0.35;
+      y = viewH() / 2 + Math.sin(a) * viewH() * 0.35;
     }
     keySources.push([x, y]);
     const k = settings.strength;
@@ -769,7 +794,7 @@
     guides.style.display = settings.guides ? "block" : "none";
     if (!settings.guides) return;
     const [ax, ay] = aimPoint();
-    const far = Math.hypot(innerWidth, innerHeight);
+    const far = Math.hypot(viewW(), viewH());
     let svg = "";
     for (const [x, y] of keySources) {
       const len = Math.hypot(ax - x, ay - y) || 1;
@@ -809,7 +834,7 @@
     return ls.map(l => {
       const out = { ...l };
       if (l.dir) {                              // key light: from high above the card
-        const from = [ax, ay - innerHeight * 0.7, l.pos[2] * 1.5];
+        const from = [ax, ay - viewH() * 0.7, l.pos[2] * 1.5];
         out.pos = l.pos.map((v, i) => from[i] + (v - from[i]) * intro.glide);
         const d = [ax - out.pos[0], ay - out.pos[1], -out.pos[2]];
         const len = Math.hypot(...d);
@@ -879,7 +904,7 @@
     canvas.style.transform = transform;
     if (siteBg) {           // shift the background the other way, zoomed just enough to hide its edges
       const dx = -tilt.yaw * 5, dy = tilt.pitch * 5;
-      const zoom = 1 + 2 * Math.max(Math.abs(dx) / innerWidth, Math.abs(dy) / innerHeight) + 0.01;
+      const zoom = 1 + 2 * Math.max(Math.abs(dx) / viewW(), Math.abs(dy) / viewH()) + 0.01;
       siteBg.style.transformOrigin = "50% 50%";
       siteBg.style.transform = on ? `translate(${dx}px, ${dy}px) scale(${zoom.toFixed(4)})` : "";
     }
@@ -907,10 +932,10 @@
 Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     }
     const dpr = Math.min(devicePixelRatio || 1, 2);
-    const w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
-    if (canvas.style.width !== innerWidth + "px" || canvas.style.height !== innerHeight + "px") {
-      canvas.style.width = innerWidth + "px";       // exactly the visible window (see above)
-      canvas.style.height = innerHeight + "px";
+    const w = Math.round(viewW() * dpr), h = Math.round(viewH() * dpr);
+    if (canvas.style.width !== viewW() + "px" || canvas.style.height !== viewH() + "px") {
+      canvas.style.width = viewW() + "px";       // exactly the page's window (see viewW)
+      canvas.style.height = viewH() + "px";
     }
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     gl.viewport(0, 0, w, h);
@@ -924,7 +949,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     gl.uniform4fv(U.uGlint, settings.extreme ? [4.5, 0.5, 40, 30] : [2.5, 0.84, 160, 6]);
     gl.uniform1f(U.uGoldEdges, settings.goldEdges ? 1 : 0);
     gl.uniform1f(U.uTime, time);
-    const cur = cursorLight(time) || motionLight();
+    const cur = cursorLight(time) || motionLight(time);
     const ls = introLights(lights(time).slice(0, MAX_LIGHTS - (cur ? 1 : 0))).concat(cur ? [cur] : []);
     gl.uniform3fv(U.uAmbient, scene.ambient.map(c => c * settings.fill));
     gl.uniform3fv(U.uEnv, scene.env);
