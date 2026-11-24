@@ -1,13 +1,13 @@
 // Easter egg: three quick clicks (or taps) on the profile picture make it shake wildly in
 // place, bouncing in every direction with a hint of blur; three more stop it. The
-// gold circle round it doesn't move: the picture is scaled up a little and clipped to a
-// circle that is shifted back by the same amount it moves, so only what's inside the
-// circle jitters. Ignores reduced motion on purpose (it only ever starts when asked for).
+// gold circle round it doesn't move: the picture is clipped to a circle shifted back by
+// the same amount it moves, so only what's inside the circle jitters (at its own size; the
+// sliver it uncovers shows the dark disc behind it, css/main.css .avatar-frame::before). Ignores reduced motion on purpose (it only ever starts when asked for).
 // js/router.js loads this on every route.
 (() => {
   "use strict";
-  const SCALE = 1.1;        // so the picture still covers the circle when shifted (also
-                            // sets how far it can jump: (SCALE - 1) x the radius)
+  const SCALE = 1;          // the picture's size while shaking (1: as it is)
+  const REACH = 0.08;       // how far it can jump, as a share of its radius
   const start = () => {
     const frame = document.querySelector(".avatar-frame");
     const pic = frame && frame.querySelector(".avatar");
@@ -22,7 +22,7 @@
       if (time - last > 28) {                   // a new jolt every couple of frames
         last = time;
         const w = pic.offsetWidth, h = pic.offsetHeight;
-        const reach = (SCALE - 1) * Math.min(w, h) / 2 * 0.9;
+        const reach = REACH * Math.min(w, h) / 2;
         const a = Math.random() * Math.PI * 2, d = reach * (0.35 + 0.65 * Math.random());
         const dx = Math.cos(a) * d, dy = Math.sin(a) * d;
         // the circle that stays put on screen, in the picture's own (moved, scaled) space

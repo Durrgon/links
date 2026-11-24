@@ -218,7 +218,18 @@ html.loading .--site-main .--container-component.--instance-container02 {
 }
 
 /* Easter egg (js/easter-egg.js shakes the picture): no text selection or tap flash from
-   quick clicks on the profile picture */
+   quick clicks on the profile picture; a dark disc behind it for the sliver it uncovers */
+.avatar-frame::before {
+    content: "";
+    position: absolute;
+    left: 12.83%;
+    top: 12.83%;
+    width: 74.35%;
+    height: 74.35%;
+    border-radius: 50%;
+    background: rgb(56, 57, 71)
+}
+
 .avatar-frame {
     -webkit-user-select: none;
     user-select: none;
