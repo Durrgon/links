@@ -714,9 +714,13 @@
        background, and text sized from the width (capped by the height so short phones
        don't scroll). */
     @media screen and (max-width:736px) {
+        /* The card's contents are ~55 of these units tall; 1.7svh keeps them inside the
+           visible height even with the browser's toolbars showing (vh can be the height
+           without them). Browsers without svh use the vh line. */
         html,
         .canvas-wrapper {
-            font-size: max(9px, min(10.5pt, 3.6vw, 1.75vh))
+            font-size: max(9px, min(10.5pt, 3.6vw, 1.7vh));
+            font-size: max(9px, min(10.5pt, 3.6vw, 1.7svh))
         }
 
         .--site-wrapper {
