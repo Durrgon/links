@@ -39,7 +39,9 @@
     scene: "auto",             // auto (viewer's local time) | day | sunset | night | custom
     hour: 12,                  // custom: hour of the day, 0..24
     guides: false,
-    showBall: false,           // debug: show where the phone-tilt ball is
+    showBall: false,           // debug: show where the phone-tilt ball is and what it lights
+    ballRadius: 300,           // phone tilt: radius of the ball's pool of light, CSS px
+    ballRange: 25,             // phone tilt: degrees of tilt that take the ball to an edge
     from: "scene",             // viewer: lights sit in front of the screen, tilted towards
                                //   their spot in the scene; scene: right over the spot
     distance: 900,             // viewer mode: how far in front of the screen, CSS px
@@ -568,14 +570,25 @@
   const motion = { active: false, gx: 0, gy: 0, x: 0, y: 0, base: null,
                    ball: null, last: 0 };
   // Debug (panel: "Show ball"): a dot where the ball is.
+  // Solid ring = the edge of its pool of light, dashed ring = where it reaches full strength.
   const ballDot = document.createElement("div");
   ballDot.setAttribute("aria-hidden", "true");
-  ballDot.style.cssText = "position:fixed;left:-9px;top:-9px;width:18px;height:18px;border-radius:50%;" +
-    "background:rgba(255,80,60,.85);box-shadow:0 0 0 2px #fff;pointer-events:none;z-index:21;display:none";
+  ballDot.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;pointer-events:none;z-index:21;display:none";
+  ballDot.innerHTML =
+    `<div style="position:absolute;left:-9px;top:-9px;width:18px;height:18px;border-radius:50%;` +
+    `background:rgba(255,80,60,.85);box-shadow:0 0 0 2px #fff"></div>` +
+    `<div data-outer style="position:absolute;border-radius:50%;border:2px solid rgba(255,80,60,.8)"></div>` +
+    `<div data-inner style="position:absolute;border-radius:50%;border:2px dashed rgba(255,255,255,.6)"></div>`;
   function drawBallDot() {
     const b = motion.ball, on = settings.showBall && settings.motion && b;
     ballDot.style.display = on ? "block" : "none";
-    if (on) ballDot.style.transform = `translate(${b.x.toFixed(1)}px, ${b.y.toFixed(1)}px)`;
+    if (!on) return;
+    ballDot.style.transform = `translate(${b.x.toFixed(1)}px, ${b.y.toFixed(1)}px)`;
+    for (const [sel, r] of [["[data-outer]", settings.ballRadius], ["[data-inner]", settings.ballRadius * BALL_CORE]]) {
+      const el = ballDot.querySelector(sel);
+      el.style.left = el.style.top = -r + "px";
+      el.style.width = el.style.height = 2 * r + "px";
+    }
   }
   function onOrientation(e) {
     motion.events = (motion.events || 0) + 1;
@@ -601,6 +614,7 @@
     // Firefox doesn't have it. So always listen, and ask as well where it exists.
     addEventListener("deviceorientation", onOrientation);
   }
+  const BALL_CORE = 0.35;
   function motionLight(time) {
     if (!settings.motion || !motion.active) return null;
     const dt = Math.min(0.05, Math.max(0, (time - (motion.last || time)) / 1000));
@@ -612,15 +626,19 @@
     // = an edge. A stiff spring takes it there, so it keeps up with the phone's movement
     // but glides instead of jumping, with no overshoot.
     const m = Math.min(W, H) * 0.06;
-    const tx = Math.max(m, Math.min(W - m, W / 2 + motion.gx * (W / 2 - m)));
-    const ty = Math.max(m, Math.min(H - m, H / 2 + motion.gy * (H / 2 - m)));
+    const reach = 25 / settings.ballRange;                     // motion.gx/gy are tilt / 25°
+    const tx = Math.max(m, Math.min(W - m, W / 2 + motion.gx * reach * (W / 2 - m)));
+    const ty = Math.max(m, Math.min(H - m, H / 2 + motion.gy * reach * (H / 2 - m)));
     if (!motion.ball) motion.ball = { x: tx, y: ty, vx: 0, vy: 0 };
     const b = motion.ball, K = 140, C = 2 * Math.sqrt(K);       // critically damped, ~0.15 s
     b.vx += (K * (tx - b.x) - C * b.vx) * dt;
     b.vy += (K * (ty - b.y) - C * b.vy) * dt;
     b.x += b.vx * dt; b.y += b.vy * dt;
-    const k = 0.95 * settings.strength;
-    return { pos: [b.x, b.y, 200], col: [1.1 * k, 1.05 * k, 0.95 * k] };
+    // a spotlight straight down from 200 px up: a pool of light ballRadius across its edge,
+    // full strength inside BALL_CORE of it
+    const k = 0.95 * settings.strength, z = 200, r = settings.ballRadius;
+    return { pos: [b.x, b.y, z], col: [1.1 * k, 1.05 * k, 0.95 * k], dir: [0, 0, -1],
+             cone: [Math.cos(Math.atan(r / z)), Math.cos(Math.atan(r * BALL_CORE / z))] };
   }
 
   function cursorLight(time) {
@@ -1050,6 +1068,8 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       range("Fill", "fill", 0, 2.5, 0.05) +
       range("Depth", "bump", 0, 6, 0.1) +
       range("Sparkle", "sparkle", 0, 10, 0.05) +
+      range("Ball radius", "ballRadius", 40, 1500, 10) +
+      range("Tilt range°", "ballRange", 5, 60, 1) +
       `<div class="lit-toggles">${toggle("Extreme sparkle", "extreme")}${toggle("Gold edges", "goldEdges")}` +
       `${toggle("Cursor light", "cursor")}${toggle("Phone tilt", "motion")}${toggle("Show ball", "showBall")}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
@@ -1121,7 +1141,10 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       taps.push(now);
       while (taps.length && now - taps[0] > 2500) taps.shift();
       // toggled a moment later, so this tap's click doesn't land on the panel as it appears
-      if (taps.length >= 6) { taps.length = 0; setTimeout(() => { p.hidden = !p.hidden; }, 400); }
+      if (taps.length >= 6) {
+        taps.length = 0;
+        setTimeout(() => { p.hidden = !p.hidden; getSelection().removeAllRanges(); }, 400);  // quick taps select words
+      }
     }, { passive: true });
     document.body.append(p, ballDot);
     clock = p.querySelector("[data-clock]");
