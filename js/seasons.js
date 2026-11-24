@@ -5,8 +5,11 @@
 // Winter is on by default for now; the lighting panel (js/lit.js, "Season" and
 // "Santa hat") switches them, and so do the flags #fall, #nosnow, #hat and #nohat.
 // window.seasons.set({ season, hat }) changes them; window.seasons.state reads them.
-// Snow and leaves are drawn on one canvas inside the background layer (.--site-bg), so
-// they sit behind the card; with reduced motion, snow is a still scatter and leaves are off.
+// Both sit inside the background layer (.--site-bg), behind the card. Snow is three
+// tiles of flakes (far, mid, near) made once from a fixed seed, so it is the same pattern
+// on every visit, and moved by CSS animations (falling, swaying), so the browser's
+// compositor does the work: no drawing per frame. Leaves are drawn on a canvas, only while
+// fall is on. With reduced motion, snow stands still and leaves are off.
 (() => {
   "use strict";
   const flags = window.route ? window.route.flags : new Set();
@@ -51,35 +54,81 @@
   canvas.setAttribute("aria-hidden", "true");
   canvas.style.cssText = "position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:3";
   const ctx = canvas.getContext("2d");
-  let W = 0, H = 0, last = 0;
+  let W = 0, H = 0, last = 0, drawn = true;
   const SCALE = 0.5;               // drawn at half resolution: cheaper, and softer anyway
 
-  // a soft round flake, drawn once and stamped
-  const flake = document.createElement("canvas");
-  flake.width = flake.height = 64;
-  {
-    const f = flake.getContext("2d"), g = f.createRadialGradient(32, 32, 0, 32, 32, 32);
-    g.addColorStop(0, "rgba(255,255,255,1)");
-    g.addColorStop(0.35, "rgba(255,255,255,.75)");
-    g.addColorStop(1, "rgba(255,255,255,0)");
-    f.fillStyle = g;
-    f.fillRect(0, 0, 64, 64);
-  }
-  let flakes = [];
-  function makeFlake(anywhere) {
-    const z = Math.pow(Math.random(), 1.6);        // more far flakes than near ones
-    return {
-      z, x: rand(0, W), y: anywhere ? rand(0, H) : rand(-40, -10),
-      r: 3 + 13 * z,                               // radius of the soft stamp, CSS px
-      speed: 10 + 32 * z,                          // px/s down
-      sway: rand(6, 22) * (0.4 + z), freq: rand(0.15, 0.45), phase: rand(0, 7),
-      alpha: 0.32 + 0.6 * z,
+  // Snow. A small seeded random generator, so the flakes land in the same places every time.
+  function seeded(seed) {
+    return () => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
-  function fillSnow() {
-    const want = Math.round(Math.min(320, W * H / 4200));
-    while (flakes.length < want) flakes.push(makeFlake(true));
-    flakes.length = want;
+  // far to near: tile size (CSS px), flakes per tile, radius and opacity ranges, softness,
+  // fall speed (px/s), sway (px, s), and how much phone tilt shifts it
+  const SNOW = [
+    { tile: 420, n: 36, r: [2, 3.6], a: [0.35, 0.6], soft: 0.55, speed: 16, sway: [8, 7], tilt: 4 },
+    { tile: 560, n: 20, r: [4.5, 7], a: [0.45, 0.75], soft: 0.65, speed: 27, sway: [14, 9], tilt: 9 },
+    { tile: 760, n: 9, r: [8, 13], a: [0.5, 0.8], soft: 0.8, speed: 40, sway: [22, 11], tilt: 15 },
+  ];
+  function snowTile(layer, rnd) {
+    const c = document.createElement("canvas"), T = layer.tile;
+    c.width = c.height = T;
+    const x = c.getContext("2d");
+    for (let i = 0; i < layer.n; i++) {
+      const fx = rnd() * T, fy = rnd() * T;
+      const r = layer.r[0] + rnd() * (layer.r[1] - layer.r[0]);
+      const a = layer.a[0] + rnd() * (layer.a[1] - layer.a[0]);
+      // drawn again across the tile's edges, so it repeats without seams
+      for (const ox of [-T, 0, T]) for (const oy of [-T, 0, T]) {
+        const cx = fx + ox, cy = fy + oy;
+        if (cx < -r || cx > T + r || cy < -r || cy > T + r) continue;
+        const g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+        g.addColorStop(0, `rgba(255,255,255,${a})`);
+        g.addColorStop(1 - layer.soft * 0.6, `rgba(255,255,255,${a * 0.7})`);
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        x.fillStyle = g;
+        x.fillRect(cx - r, cy - r, r * 2, r * 2);
+      }
+    }
+    return c.toDataURL();
+  }
+  const snow = document.createElement("div");
+  snow.setAttribute("aria-hidden", "true");
+  snow.style.cssText = "position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3;display:none";
+  const snowLayers = [];
+  let snowMade = false;
+  function makeSnow() {
+    if (snowMade) return;
+    snowMade = true;
+    const rnd = seeded(20261124);
+    SNOW.forEach((layer, i) => {
+      const tilt = document.createElement("div"), sway = document.createElement("div"), fall = document.createElement("div");
+      tilt.style.cssText = sway.style.cssText = "position:absolute;inset:0";
+      sway.style.animation = `snow-sway ${layer.sway[1]}s ease-in-out ${-i * 2.3}s infinite alternate`;
+      sway.style.setProperty("--sway", layer.sway[0] + "px");
+      fall.style.cssText = `position:absolute;left:-${layer.sway[0] + 20}px;right:-${layer.sway[0] + 20}px;` +
+        `top:-${layer.tile}px;bottom:0;background:url(${snowTile(layer, rnd)}) 0 0 / ${layer.tile}px ${layer.tile}px repeat;` +
+        `animation:snow-fall ${(layer.tile / layer.speed).toFixed(2)}s linear infinite`;
+      fall.style.setProperty("--tile", layer.tile + "px");
+      sway.append(fall); tilt.append(sway); snow.append(tilt);
+      snowLayers.push({ el: tilt, tilt: layer.tilt, key: "" });
+    });
+  }
+  const snowStyle = document.createElement("style");
+  snowStyle.textContent = `
+    @keyframes snow-fall { from { transform: translateY(0) } to { transform: translateY(var(--tile)) } }
+    @keyframes snow-sway { from { transform: translateX(calc(-1 * var(--sway))) } to { transform: translateX(var(--sway)) } }
+    @media (prefers-reduced-motion: reduce) { .--site-bg [style*="snow-"] { animation: none !important } }`;
+  // phone tilt (js/lit.js shares its joystick as window.litMotion): nearer layers shift more
+  function tiltSnow() {
+    const m = window.litMotion, on = m && m.active;
+    for (const l of snowLayers) {
+      const t = on ? `translate(${(m.x * l.tilt).toFixed(1)}px, ${(m.y * l.tilt * 0.7).toFixed(1)}px)` : "";
+      if (t !== l.key) { l.key = t; l.el.style.transform = t; }
+    }
   }
 
   // leaves: a few shapes, drawn once per colour
@@ -170,23 +219,12 @@
       W = w; H = h;
       canvas.width = Math.max(1, Math.round(W * SCALE));
       canvas.height = Math.max(1, Math.round(H * SCALE));
-      if (state.season === "winter") fillSnow();
     }
     ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
-    ctx.clearRect(0, 0, W, H);
+    if (drawn) ctx.clearRect(0, 0, W, H);           // nothing to clear between gusts
+    drawn = false;
     const t = time / 1000;
-    if (state.season === "winter") {
-      for (const f of flakes) {
-        if (!reduceMotion) {
-          f.y += f.speed * dt;
-          if (f.y - f.r > H) Object.assign(f, makeFlake(false));
-        }
-        const [sx, sy] = tiltShift(f.z);
-        const x = f.x + Math.sin(t * f.freq * 6.28 + f.phase) * f.sway + sx;
-        ctx.globalAlpha = f.alpha;
-        ctx.drawImage(flake, x - f.r, f.y + sy - f.r, f.r * 2, f.r * 2);
-      }
-    } else if (state.season === "fall" && !reduceMotion) {
+    if (state.season === "fall" && !reduceMotion) {
       if (!nextGust) nextGust = time + rand(1500, 5000);   // the first one fairly soon
       if (time > nextGust) gust(time);
       leaves = leaves.filter(l => l.x > -120 && l.x < W + 120 && l.y < H + 120);
@@ -207,6 +245,7 @@
         const s = l.size;
         ctx.drawImage(l.sprite, -s, -s, s * 2, s * 2);
         ctx.restore();
+        drawn = true;
       }
     }
     ctx.globalAlpha = 1;
@@ -214,24 +253,27 @@
 
   function frame(time) {
     placeHat();
-    if (state.season !== "none") draw(time);
+    if (state.season === "fall") draw(time);
+    if (state.season === "winter") tiltSnow();
     requestAnimationFrame(frame);
   }
 
   function set(opts) {
     Object.assign(state, opts);
     hatKey = "";
-    canvas.style.display = state.season === "none" ? "none" : "block";
-    if (state.season === "winter") { flakes = []; W = H = 0; }
+    canvas.style.display = state.season === "fall" ? "block" : "none";
+    snow.style.display = state.season === "winter" ? "block" : "none";
+    if (state.season === "winter") makeSnow();
     if (state.season === "fall") { leaves = []; nextGust = 0; }
-    if (state.season === "none") ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (state.season !== "fall") { ctx.clearRect(0, 0, canvas.width, canvas.height); drawn = false; }
   }
   window.seasons = { state, set };
 
   function start() {
     frameEl = document.querySelector(".avatar-frame");
     const bg = document.querySelector(".--site-bg");
-    if (bg) bg.append(canvas);
+    if (bg) bg.append(snow, canvas);
+    document.head.append(snowStyle);
     document.body.append(hat);
     set({});
     requestAnimationFrame(frame);
