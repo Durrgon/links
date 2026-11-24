@@ -559,10 +559,9 @@
   // The mouse as a small light: a soft pool around the pointer, bright while it moves and
   // fading out after a moment of stillness, so it can be raked across the metal.
   const cursorGlow = { level: 0, last: 0 };
-  // Phones: tilting the phone (gyroscope/accelerometer via deviceorientation) rolls an
+  // Phones: tilting the phone (gyroscope/accelerometer via deviceorientation) moves an
   // invisible ball around the screen that carries a soft light, and shifts the viewing
-  // angle, so reflections and glints move. The ball speeds up downhill, slows by rolling
-  // friction and bounces off the screen's edges.
+  // angle, so reflections and glints move. The ball follows the tilt closely, smoothed.
   // The first reading is "neutral", whatever angle the phone is held at; neutral drifts
   // slowly towards the current angle so it settles if the phone is put down at a new angle.
   // iPhones ask for permission, which needs a tap, so the first tap asks.
@@ -609,18 +608,17 @@
     motion.x += (motion.gx - motion.x) * 0.15;      // smooth out sensor jitter (viewing angle)
     motion.y += (motion.gy - motion.y) * 0.15;
     const W = viewW(), H = viewH();
-    if (!motion.ball) { const [ax, ay] = aimPoint(); motion.ball = { x: ax, y: ay, vx: 0, vy: 0 }; }
-    const b = motion.ball, g = 2.2 * Math.max(W, H);           // full tilt: ~2 screens/s²
-    b.vx += Math.sin(motion.x * 25 * Math.PI / 180) * g * dt;  // motion.x/y = tilt / 25°
-    b.vy += Math.sin(motion.y * 25 * Math.PI / 180) * g * dt;
-    const f = Math.exp(-dt * 1.4);                             // rolling friction
-    b.vx *= f; b.vy *= f;
+    // The ball goes where the phone points: level = the middle of the screen, 25° of tilt
+    // = an edge. A stiff spring takes it there, so it keeps up with the phone's movement
+    // but glides instead of jumping, with no overshoot.
+    const m = Math.min(W, H) * 0.06;
+    const tx = Math.max(m, Math.min(W - m, W / 2 + motion.gx * (W / 2 - m)));
+    const ty = Math.max(m, Math.min(H - m, H / 2 + motion.gy * (H / 2 - m)));
+    if (!motion.ball) motion.ball = { x: tx, y: ty, vx: 0, vy: 0 };
+    const b = motion.ball, K = 140, C = 2 * Math.sqrt(K);       // critically damped, ~0.15 s
+    b.vx += (K * (tx - b.x) - C * b.vx) * dt;
+    b.vy += (K * (ty - b.y) - C * b.vy) * dt;
     b.x += b.vx * dt; b.y += b.vy * dt;
-    const m = Math.min(W, H) * 0.06;                           // bounce a little inside the edges
-    if (b.x < m) { b.x = m; b.vx = Math.abs(b.vx) * 0.45; }
-    if (b.x > W - m) { b.x = W - m; b.vx = -Math.abs(b.vx) * 0.45; }
-    if (b.y < m) { b.y = m; b.vy = Math.abs(b.vy) * 0.45; }
-    if (b.y > H - m) { b.y = H - m; b.vy = -Math.abs(b.vy) * 0.45; }
     const k = 0.95 * settings.strength;
     return { pos: [b.x, b.y, 200], col: [1.1 * k, 1.05 * k, 0.95 * k] };
   }
