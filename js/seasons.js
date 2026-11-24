@@ -2,8 +2,8 @@
 //   winter: soft, blurry snow drifting slowly behind the card;
 //   fall:   now and then a few red/orange leaves blow across behind the card;
 //   hat:    a Santa hat on the avatar, on by itself in December.
-// Seasons are off by default for now; the lighting panel (js/lit.js, "Season" and
-// "Santa hat") switches them, and so do the flags #winter, #fall, #hat and #nohat.
+// Winter is on by default for now; the lighting panel (js/lit.js, "Season" and
+// "Santa hat") switches them, and so do the flags #fall, #nosnow, #hat and #nohat.
 // window.seasons.set({ season, hat }) changes them; window.seasons.state reads them.
 // Snow and leaves are drawn on one canvas inside the background layer (.--site-bg), so
 // they sit behind the card; with reduced motion, snow is a still scatter and leaves are off.
@@ -11,7 +11,7 @@
   "use strict";
   const flags = window.route ? window.route.flags : new Set();
   const state = {
-    season: flags.has("winter") ? "winter" : flags.has("fall") ? "fall" : "none",
+    season: flags.has("fall") ? "fall" : flags.has("nosnow") ? "none" : "winter",   // winter for now
     hat: flags.has("nohat") ? false : flags.has("hat") || new Date().getMonth() === 11,
   };
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
