@@ -143,7 +143,9 @@
   // =====================================================================================
   const canvas = document.createElement("canvas");
   canvas.setAttribute("aria-hidden", "true");
-  canvas.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:10;" +
+  // sized to the visible window in px every frame (frame()): on phones 100vh is taller than
+  // the visible area, which stretched the canvas and drew everything too low
+  canvas.style.cssText = "position:fixed;left:0;top:0;pointer-events:none;z-index:10;" +
     "opacity:0;transition:opacity 90ms ease-out";   // fades in with the card (css/main.css)
   const gl = canvas.getContext("webgl2", { premultipliedAlpha: true, antialias: false });
   const giveUp = () => document.documentElement.classList.remove("lit-pending", "loading");   // static stays
@@ -762,7 +764,7 @@
   const NS = "http://www.w3.org/2000/svg";
   const guides = document.createElementNS(NS, "svg");
   guides.setAttribute("aria-hidden", "true");
-  guides.style.cssText = "position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:11;display:none";
+  guides.style.cssText = "position:fixed;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:11;display:none";
   function drawGuides() {
     guides.style.display = settings.guides ? "block" : "none";
     if (!settings.guides) return;
@@ -906,6 +908,10 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     }
     const dpr = Math.min(devicePixelRatio || 1, 2);
     const w = Math.round(innerWidth * dpr), h = Math.round(innerHeight * dpr);
+    if (canvas.style.width !== innerWidth + "px" || canvas.style.height !== innerHeight + "px") {
+      canvas.style.width = innerWidth + "px";       // exactly the visible window (see above)
+      canvas.style.height = innerHeight + "px";
+    }
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     gl.viewport(0, 0, w, h);
     gl.clearColor(0, 0, 0, 0);
