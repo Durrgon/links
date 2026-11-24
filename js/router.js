@@ -53,11 +53,13 @@
     if (config.pending && !html.classList.contains("lit")) html.classList.remove(config.pending);
   }, 3000);
 
-  // the route's scripts, once the page's markup is there
+  // the scripts every route has, then the route's own, once the page's markup is there
+  // (in order: js/lit.js's panel talks to js/seasons.js)
   document.addEventListener("DOMContentLoaded", () => {
-    for (const src of config.scripts || []) {
+    for (const src of ["js/seasons.js"].concat(config.scripts || [])) {
       const s = document.createElement("script");
       s.src = src;
+      s.async = false;
       document.body.append(s);
     }
   });

@@ -634,6 +634,7 @@
   // steady when the phone is held upright (left/right tilt alone jumps about there).
   const motion = { active: false, gx: 0, gy: 0, x: 0, y: 0, up: null, base: null,
                    ball: null, last: 0, smooth: null, rate: 0, calm: [0, 0], homing: 0 };
+  window.litMotion = motion;                // js/seasons.js shifts snow and leaves with it
   const STILL = [[1.5, 1.0], [10, 1.5]];    // [turning speed °/s, seconds]: set down, held
   // Debug (panel: "Show ball"): a dot where the ball is.
   // Solid ring = the edge of its pool of light, dashed ring = where it reaches full strength.
@@ -1132,6 +1133,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
   // Control panel
   // =====================================================================================
   function panel() {
+    if (window.seasons) { settings.season = window.seasons.state.season; settings.hat = window.seasons.state.hat; }
     const p = document.createElement("div");
     p.className = "lit-panel";
     const LABELS = { blackslate: "Black slate", red: "Red paint" };
@@ -1169,8 +1171,9 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       range("Tilt range°", "ballRange", 5, 60, 1) +
       range("Camera blur", "cameraBlur", 0, 40, 1) +
       select("Camera facing", settings.cameraFacing, ["back", "front"], "cameraFacing") +
+      (window.seasons ? select("Season", window.seasons.state.season, ["none", "winter", "fall"], "season") : "") +
       `<div class="lit-toggles">${toggle("Extreme sparkle", "extreme")}${toggle("Gold edges", "goldEdges")}` +
-      `${toggle("Cursor light", "cursor")}${toggle("Phone tilt", "motion")}${toggle("Show ball", "showBall")}${toggle("Camera (experimental)", "camera")}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
+      `${toggle("Cursor light", "cursor")}${toggle("Phone tilt", "motion")}${toggle("Show ball", "showBall")}${toggle("Camera (experimental)", "camera")}${window.seasons ? toggle("Santa hat", "hat") : ""}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
       select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
       select("Border metal", settings.border.metal, Object.keys(METALS), "border.metal") +
@@ -1193,6 +1196,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       const [a, b] = key.split(".");
       if (b) settings[a][b] = value; else settings[a] = value;
       if (key === "camera") setCamera(value);
+      if ((key === "season" || key === "hat") && window.seasons) window.seasons.set({ [key]: value });
       if (key === "cameraBlur" && cam.stream) styleCamera();
       if (key === "cameraFacing" && settings.camera) { setCamera(false); setCamera(true); }
     });
