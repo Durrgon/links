@@ -55,6 +55,8 @@
     ballRadius: 300,           // phone tilt: radius of the ball's pool of light, CSS px
     ballRange: 25,             // phone tilt: degrees of tilt that take the ball to an edge
     goldButtons: true,         // a gold edge line around each link button
+    ringEdge: false,           // mock: no stone ring; a gold line along the header's foot that
+                               //   circles the avatar instead (#ringedge)
     goldTitle: true,           // a gold line traced around the rune heading
     goldSubtitle: true,        // the subtitle in lit gold instead of yellow
     parallax: true,            // phone tilt shifts the banner a little inside its frame
@@ -78,6 +80,7 @@
     tilt: false,               // WASD tilts the card (debugging)
   };
   if (window.route && window.route.flags.has("goldedges")) settings.goldEdges = true;   // #goldedges
+  if (window.route && window.route.flags.has("ringedge")) settings.ringEdge = true;     // #ringedge
   const aim = { x: null, y: null };          // null = the card's centre
   const pinned = { x: null, y: null };       // null = brightest spot of the video
 
@@ -1157,7 +1160,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
                  Math.max(0, Math.round(cw - 2 * b)), Math.max(0, Math.round(ch - 2 * b))];
       gl.uniform1f(U.uBW, b);                 // decals: stone grain at the border's scale
     }
-    if (ring && texRing) {
+    if (ring && texRing && !settings.ringEdge) {
       gl.bindTexture(gl.TEXTURE_2D, texRing);
       setMaterial("ring");
       gl.uniform1i(U.uMode, 1);
@@ -1199,6 +1202,10 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     const el = document.querySelector(sel);
     if (el) decals.push({ el, kind, set, glow: kind === "fill" ? 0.7 : 0 });
   }
+  {   // the header's foot and a circle round the avatar (the "gold edge only" profile)
+    const el = document.querySelector('.component-wrapper[data-type="image"]');
+    if (el && el.querySelector(".avatar")) decals.push({ el, kind: "header", set: "ringEdge" });
+  }
   const fontOf = cs => `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
   const measureCtx = document.createElement("canvas").getContext("2d");
   function glyphs(el) {               // [{ch, font, x, y (baseline)}], relative to el's box
@@ -1227,7 +1234,9 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
   }
   function buildDecal(d, dpr) {
     const w = d.el.offsetWidth, h = d.el.offsetHeight;
-    const pad = d.kind === "outline" ? 8 : 3;                    // CSS px around the element
+    // CSS px around the element (the avatar hangs half below the header's box)
+    const pad = d.kind === "outline" ? 8 : d.kind === "header"
+      ? Math.ceil(d.el.querySelector(".avatar").offsetHeight * 0.6) + 4 : 3;
     // the mask is made at 2x or more and mipmapped: on 1x screens a mask at screen size,
     // bevelled, turned small text to mush
     const ss = Math.max(2, dpr);
@@ -1242,7 +1251,21 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     c.lineJoin = "miter";
     c.miterLimit = 3;
     let soft = 1;                                                 // bevel blur, CSS px
-    if (d.kind === "button") {
+    if (d.kind === "header") {
+      const box = d.el.getBoundingClientRect();
+      const banner = d.el.querySelector(".--frame") || d.el;
+      const fb = banner.getBoundingClientRect(), av = d.el.querySelector(".avatar").getBoundingClientRect();
+      const lw = 1.6, y = fb.bottom - box.top - lw / 2;           // just inside the header's foot
+      const cx = av.left - box.left + av.width / 2, cy = av.top - box.top + av.height / 2;
+      const r = av.width / 2 + lw / 2;                            // hugging the avatar's edge
+      c.lineWidth = lw;
+      c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke();
+      c.globalCompositeOperation = "destination-out";             // the line stops at the circle
+      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.fill();
+      c.globalCompositeOperation = "source-over";
+      c.beginPath(); c.arc(cx, cy, r, 0, Math.PI * 2); c.stroke();
+      soft = 0.35;
+    } else if (d.kind === "button") {
       const r = Math.min(h / 2, parseFloat(getComputedStyle(d.el).borderTopLeftRadius) || h / 2);
       const inset = 1.4;
       c.lineWidth = 1.6;
@@ -1387,6 +1410,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       (window.seasons ? select("Season", window.seasons.state.season, ["none", "winter", "fall"], "season") : "") +
       `<div class="lit-toggles">${toggle("Extreme sparkle", "extreme")}${toggle("Gold edges", "goldEdges")}` +
       `${toggle("Gold buttons", "goldButtons")}${toggle("Gold title", "goldTitle")}${toggle("Gold subtitle", "goldSubtitle")}` +
+      `${toggle("Profile: gold edge only", "ringEdge")}` +
       `${toggle("Banner parallax", "parallax")}` +
       `${toggle("Cursor light", "cursor")}${toggle("Phone tilt", "motion")}${toggle("Show ball", "showBall")}${toggle("Camera (experimental)", "camera")}${window.seasons ? toggle("Santa hat", "hat") : ""}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
       select("Ring runes", settings.ring.metal, MATERIALS, "ring.metal") +
