@@ -35,8 +35,11 @@
   // Every stone and metal can be either part: the stone (the band) or the runes (and the
   // gold edges and decals, which follow the border's runes). Gold stone is a metal band;
   // slate runes are carved stone.
-  const MATERIALS = Object.keys(STONES).concat(Object.keys(METALS));
+  // white: flat (almost no speckle), with a faint sheen
+  const WHITE = { metal: 0.12, dark: [0.86, 0.86, 0.84], light: [0.92, 0.92, 0.90], spec: [1, 1, 1], rough: 0.45 };
+  const MATERIALS = Object.keys(STONES).concat(["white"], Object.keys(METALS));
   function material(name) {
+    if (name === "white") return WHITE;
     if (STONES[name]) return { metal: 0, dark: STONES[name][0], light: STONES[name][1], spec: [0.04, 0.04, 0.04], rough: 0.8 };
     const c = METALS[name] || METALS.gold;
     return { metal: 1, dark: c.map(v => v * 0.3), light: c.map(v => v * 0.6), spec: c, rough: name === "red" ? 0.65 : 0.38 };
