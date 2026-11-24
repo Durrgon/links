@@ -55,8 +55,8 @@
     ballRadius: 300,           // phone tilt: radius of the ball's pool of light, CSS px
     ballRange: 25,             // phone tilt: degrees of tilt that take the ball to an edge
     goldButtons: true,         // a gold edge line around each link button
-    ringEdge: false,           // mock: no stone ring; a gold line along the header's foot that
-                               //   circles the avatar instead (#ringedge)
+    ringEdge: true,            // the profile: no stone ring, a gold line along the header's
+                               //   foot that circles the avatar (off: the lit stone ring)
     goldTitle: true,           // a gold line traced around the rune heading
     goldSubtitle: true,        // the subtitle in lit gold instead of yellow
     parallax: true,            // phone tilt shifts the banner a little inside its frame
@@ -80,7 +80,7 @@
     tilt: false,               // WASD tilts the card (debugging)
   };
   if (window.route && window.route.flags.has("goldedges")) settings.goldEdges = true;   // #goldedges
-  if (window.route && window.route.flags.has("ringedge")) settings.ringEdge = true;     // #ringedge
+  if (window.route && window.route.flags.has("stonering")) settings.ringEdge = false;   // #stonering
   const aim = { x: null, y: null };          // null = the card's centre
   const pinned = { x: null, y: null };       // null = brightest spot of the video
 
@@ -1202,7 +1202,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     const el = document.querySelector(sel);
     if (el) decals.push({ el, kind, set, glow: kind === "fill" ? 0.7 : 0 });
   }
-  {   // the header's foot and a circle round the avatar (the "gold edge only" profile)
+  {   // the profile's gold edge: the header's foot, and a circle round the avatar
     const el = document.querySelector('.component-wrapper[data-type="image"]');
     if (el && el.querySelector(".avatar")) decals.push({ el, kind: "header", set: "ringEdge" });
   }
@@ -1470,6 +1470,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       .lit-buttons a { color: #9ab4ff; margin-left: auto }
       html.lit { touch-action: manipulation }   /* quick taps don't double-tap zoom; pinch still works */
       html.lit .avatar-ring { visibility: hidden }
+      html.lit .avatar, html.lit .--instance-image01>.--frame { box-shadow: none }   /* drawn lit */
       html.lit.lit-gold-subtitle .--instance-text03 { color: transparent }
       html.lit.lit-gold-title .--instance-text01, html.lit.lit-gold-title .--instance-text01 * { color: transparent !important }
       html.lit:not(.lit-gold-title) .--instance-text01>canvas { display: none }
@@ -1485,7 +1486,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     // Phones have no L key: 6 quick taps on the page (not on a link or a control) show/hide it.
     const taps = [];
     addEventListener("pointerdown", e => {
-      if (e.target.closest("a, button, input, select, label, .lit-panel")) return;
+      if (e.target.closest("a, button, input, select, label, .lit-panel, .avatar-frame")) return;
       const now = performance.now();
       taps.push(now);
       while (taps.length && now - taps[0] > 2500) taps.shift();
