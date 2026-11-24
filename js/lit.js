@@ -1074,7 +1074,9 @@
         `
 Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     }
-    const dpr = Math.min(devicePixelRatio || 1, 2);
+    // up to 3 device px per CSS px: phones are ~2.6x and browser zoom raises it; at a 2x cap
+    // both were drawn small and stretched, which blurred the ring, border and gold
+    const dpr = Math.min(devicePixelRatio || 1, 3);
     const w = Math.round(viewW() * dpr), h = Math.round(viewH() * dpr);
     if (canvas.style.width !== viewW() + "px" || canvas.style.height !== viewH() + "px") {
       canvas.style.width = viewW() + "px";       // exactly the page's window (see viewW)
