@@ -46,7 +46,13 @@
   const image = src => new Promise(done => { const i = new Image(); i.onload = i.onerror = done; i.src = src; });
   const images = ["images/rune-border.webp", "images/banner.webp", "images/avatar.webp"]
     .concat(config.pending ? [] : ["images/avatar-frame.webp"]);
-  window.pageReady = Promise.all([document.fonts ? document.fonts.load("1em Roboto") : 0, ...images.map(image)]);
+  // Things appear in order: the background, then what floats over it (js/seasons.js waits
+  // for bgReady), then the card (pageReady includes the background too).
+  window.bgReady = new Promise(done => document.addEventListener("DOMContentLoaded", () => {
+    const video = document.querySelector(".bg-video");
+    if (video && video.poster) image(video.poster).then(done); else done();
+  }));
+  window.pageReady = Promise.all([document.fonts ? document.fonts.load("1em Roboto") : 0, ...images.map(image), window.bgReady]);
   if (!config.pending) window.pageReady.then(() => html.classList.remove("loading"));
   setTimeout(() => {
     html.classList.remove("loading");

@@ -52,7 +52,8 @@
   // =====================================================================================
   const canvas = document.createElement("canvas");
   canvas.setAttribute("aria-hidden", "true");
-  canvas.style.cssText = "position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:3";
+  canvas.style.cssText = "position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:3;" +
+    "opacity:0;transition:opacity .5s ease-out";
   const ctx = canvas.getContext("2d");
   let W = 0, H = 0, last = 0, drawn = true;
   const SCALE = 0.5;               // drawn at half resolution: cheaper, and softer anyway
@@ -97,7 +98,8 @@
   }
   const snow = document.createElement("div");
   snow.setAttribute("aria-hidden", "true");
-  snow.style.cssText = "position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3;display:none";
+  snow.style.cssText = "position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:3;display:none;" +
+    "opacity:0;transition:opacity .5s ease-out";          // faded in once the background is up
   const snowLayers = [];
   let snowMade = false;
   function makeSnow() {
@@ -273,6 +275,8 @@
     frameEl = document.querySelector(".avatar-frame");
     const bg = document.querySelector(".--site-bg");
     if (bg) bg.append(snow, canvas);
+    // only once the background is showing: never snow over a blank screen
+    Promise.resolve(window.bgReady).then(() => { snow.style.opacity = canvas.style.opacity = "1"; });
     document.head.append(snowStyle);
     document.body.append(hat);
     set({});
