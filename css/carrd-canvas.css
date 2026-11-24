@@ -732,6 +732,15 @@
             width: 100%
         }
 
+        /* the page itself never scrolls (the card does, inside its border); this also keeps
+           the browser's toolbar from hiding and changing the visible height */
+        html,
+        body {
+            height: 100%;
+            overflow: hidden;
+            overscroll-behavior: none
+        }
+
         .--site-main>.--inner {
             --padding-horizontal: 0px;
             --padding-vertical: 0px;
