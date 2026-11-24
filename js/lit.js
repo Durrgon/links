@@ -298,14 +298,17 @@
     } else {
       uv = vLocal / uRect.zw; du = vec2(1.0 / uRect.z, 0.0); dv = vec2(0.0, 1.0 / uRect.w);
     }
-    vec4 m = texture(uTex, uv);
+    // mipmapped masks (ring, decals): lean a little towards the sharper level, so small
+    // runes stay crisp instead of averaged soft
+    float bias = uMode == 0 ? 0.0 : -0.6;
+    vec4 m = texture(uTex, uv, bias);
     if (m.a < 0.004) discard;
     vec2 screen = uRect.xy + vLocal;
 
     // Height: runes raised, grooves sunk, a little grain; normals from neighbouring samples.
     float g0 = grain(vLocal);
     float h0 = heightOf(m, g0);
-    vec4 mx1 = texture(uTex, uv + du), my1 = texture(uTex, uv + dv);
+    vec4 mx1 = texture(uTex, uv + du, bias), my1 = texture(uTex, uv + dv, bias);
     float hx = heightOf(mx1, grain(vLocal + vec2(1, 0)));
     float hy = heightOf(my1, grain(vLocal + vec2(0, 1)));
     vec3 n = normalize(vec3(-(hx - h0) * uBump * uDpr, -(hy - h0) * uBump * uDpr, 1.0));
@@ -1167,7 +1170,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
   for (const [sel, kind, set] of [[".--instance-text01", "outline", "goldTitle"],
                                   [".--instance-text03", "fill", "goldSubtitle"]]) {
     const el = document.querySelector(sel);
-    if (el) decals.push({ el, kind, set, glow: kind === "fill" ? 0.45 : 0 });
+    if (el) decals.push({ el, kind, set, glow: kind === "fill" ? 0.7 : 0 });
   }
   const fontOf = cs => `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
   const measureCtx = document.createElement("canvas").getContext("2d");
@@ -1198,12 +1201,15 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
   function buildDecal(d, dpr) {
     const w = d.el.offsetWidth, h = d.el.offsetHeight;
     const pad = d.kind === "outline" ? 8 : 3;                    // CSS px around the element
-    const cw = Math.ceil((w + 2 * pad) * dpr), ch = Math.ceil((h + 2 * pad) * dpr);
+    // the mask is made at 2x or more and mipmapped: on 1x screens a mask at screen size,
+    // bevelled, turned small text to mush
+    const ss = Math.max(2, dpr);
+    const cw = Math.ceil((w + 2 * pad) * ss), ch = Math.ceil((h + 2 * pad) * ss);
     if (cw < 2 || ch < 2) return;
     const crisp = document.createElement("canvas");
     crisp.width = cw; crisp.height = ch;
     const c = crisp.getContext("2d", { willReadFrequently: true });
-    c.scale(dpr, dpr);
+    c.scale(ss, ss);
     c.translate(pad, pad);
     c.fillStyle = c.strokeStyle = "#fff";
     c.lineJoin = "miter";
@@ -1242,7 +1248,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
           d.el.append(d.text);
         }
         const t = d.text, tc = t.getContext("2d");
-        t.width = cw; t.height = ch;
+        t.width = Math.ceil((w + 2 * pad) * dpr); t.height = Math.ceil((h + 2 * pad) * dpr);
         Object.assign(t.style, { left: -pad + "px", top: -pad + "px", width: w + 2 * pad + "px", height: h + 2 * pad + "px" });
         tc.scale(dpr, dpr);
         tc.translate(pad, pad);
@@ -1256,7 +1262,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     const blurred = document.createElement("canvas");
     blurred.width = cw; blurred.height = ch;
     const b = blurred.getContext("2d", { willReadFrequently: true });
-    b.filter = `blur(${(soft * dpr).toFixed(2)}px)`;
+    b.filter = `blur(${(soft * ss).toFixed(2)}px)`;
     b.drawImage(crisp, 0, 0);
     const out = c.getImageData(0, 0, cw, ch), R = b.getImageData(0, 0, cw, ch).data;
     const px = out.data;
@@ -1267,6 +1273,8 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     gl.bindTexture(gl.TEXTURE_2D, d.tex);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, out);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
     d.pad = pad; d.w = w; d.h = h;
   }
   function drawDecals(dpr, scissor) {
