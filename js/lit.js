@@ -627,13 +627,14 @@
   // away from "neutral" pushes it out (gx, gy: -1..1 across the screen, eased so it never
   // quite reaches an edge, and never a corner). Neutral is the first reading; it stays put
   // while the phone is being moved, and snaps (a quick glide home) to how the phone is
-  // held once it has been still: set down (under 0.6° of movement for 1.2 s) or held and
-  // looked at (within 3.5°, hand jitter, for 2 s).
+  // held once it has been calm: set down (turning under 1.5°/s for 1 s) or held and looked
+  // at (under 10°/s, a hand's jitter and slow wander, for 1.5 s). A deliberate tilt turns
+  // the phone far faster than that.
   // Tilt is measured from the direction of "up" in the phone's own frame, which stays
   // steady when the phone is held upright (left/right tilt alone jumps about there).
   const motion = { active: false, gx: 0, gy: 0, x: 0, y: 0, up: null, base: null,
-                   ball: null, last: 0, anchor: null, steadyFor: 0, maxDev: 0, homing: 0 };
-  const STILL = [[0.6, 1.2], [3.5, 2.0]];   // [degrees of wobble, seconds]: set down, held
+                   ball: null, last: 0, smooth: null, rate: 0, calm: [0, 0], homing: 0 };
+  const STILL = [[1.5, 1.0], [10, 1.5]];    // [turning speed °/s, seconds]: set down, held
   // Debug (panel: "Show ball"): a dot where the ball is.
   // Solid ring = the edge of its pool of light, dashed ring = where it reaches full strength.
   const ballDot = document.createElement("div");
@@ -667,19 +668,22 @@
   }
   function updateJoystick(dt) {
     const u = motion.up, base = motion.base;
-    // Stillness: how far "up" has wandered (degrees) since the current steady spell began;
-    // a bigger move than the loosest limit starts a new spell from here.
-    const devFrom = a => Math.hypot(u[0] - a[0], u[1] - a[1], u[2] - a[2]) * 180 / Math.PI;
-    if (!motion.anchor || devFrom(motion.anchor) > STILL[1][0]) {
-      motion.anchor = u.slice(); motion.steadyFor = 0; motion.maxDev = 0;
-    } else {
-      motion.steadyFor += dt;
-      motion.maxDev = Math.max(motion.maxDev, devFrom(motion.anchor));
-      if (!motion.homing && devFrom(base) > 0.5 &&
-          STILL.some(([deg, secs]) => motion.maxDev < deg && motion.steadyFor >= secs)) motion.homing = 0.6;
+    // Calm: how fast the phone is turning (°/s, from a lightly smoothed "up" so sensor
+    // noise doesn't count), and for how long it has stayed under each limit.
+    const deg = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) * 180 / Math.PI;
+    if (!motion.smooth) motion.smooth = u.slice();
+    if (dt > 0) {
+      const prev = motion.smooth.slice(), k = 1 - Math.exp(-dt / 0.1);
+      for (let i = 0; i < 3; i++) motion.smooth[i] += (u[i] - motion.smooth[i]) * k;
+      motion.rate += (deg(motion.smooth, prev) / dt - motion.rate) * (1 - Math.exp(-dt / 0.25));
+    }
+    STILL.forEach(([speed], i) => { motion.calm[i] = motion.rate < speed ? motion.calm[i] + dt : 0; });
+    if (!motion.homing && deg(u, base) > 0.5 && STILL.some(([, secs], i) => motion.calm[i] >= secs)) {
+      motion.homing = 0.6;
+      motion.calm = [0, 0];                         // the next snap needs another calm spell
     }
     if (motion.homing > 0) {                        // snap neutral to here: ~0.2 s glide
-      motion.homing -= dt;
+      motion.homing = Math.max(0, motion.homing - dt);
       const k = 1 - Math.exp(-dt / 0.07);
       for (let i = 0; i < 3; i++) base[i] += (u[i] - base[i]) * k;
     }
@@ -1050,7 +1054,7 @@
         (settings.tilt ? ` · tilt ${tilt.yaw.toFixed(0)}°, ${tilt.pitch.toFixed(0)}°` : "") +
         (settings.motion ? (motion.active
           ? ` · phone ${motion.raw[0].toFixed(0)}°, ${motion.raw[1].toFixed(0)}°` +
-            ` · still ${motion.steadyFor.toFixed(1)} s ±${motion.maxDev.toFixed(1)}°` +
+            ` · turning ${motion.rate.toFixed(1)}°/s, calm ${motion.calm[1].toFixed(1)} s` +
             (motion.ball ? ` · ball ${motion.ball.x.toFixed(0)}, ${motion.ball.y.toFixed(0)}` : "")
           : ` · phone tilt: no readings${motion.events ? "" : " (no events)"}`) : "") +
         (cam.status ? ` · ${cam.status}` : "") +
