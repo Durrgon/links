@@ -52,6 +52,7 @@
     extreme: true,             // big, frequent, bright glints
     goldEdges: true,           // the band's edge lines as raised gold inlay instead of grooves
     cursor: true,              // the mouse is a small light near the frame
+    motion: true,              // phones: tilting the phone moves a light and the viewing angle
     tilt: false,               // WASD tilts the card (debugging)
   };
   if (window.route && window.route.flags.has("goldedges")) settings.goldEdges = true;   // #goldedges
@@ -116,9 +117,21 @@
   });
 
   // Where the background video is on screen (CSS px). It keeps its aspect and covers the width.
-  function videoRect() {
+  // Where the picture is drawn: the video element is object-fit: cover, positioned 50% 0%
+  // (css/carrd-canvas.css), so the picture can be larger than the element and cropped.
+  // Returns {left, top, width, height} relative to the element's own box.
+  function pictureInElement(w, h) {
+    const iw = video.videoWidth || poster.naturalWidth || 1920;
+    const ih = video.videoHeight || poster.naturalHeight || 1080;
+    const scale = Math.max(w / iw, h / ih);
+    const pw = iw * scale, ph = ih * scale;
+    return { left: (w - pw) * 0.5, top: 0, width: pw, height: ph };
+  }
+  function videoRect() {             // on screen, CSS px
     const r = video && video.getBoundingClientRect();
-    return r && r.width ? r : { left: 0, top: 0, width: innerWidth, height: innerHeight };
+    if (!r || !r.width) return { left: 0, top: 0, width: innerWidth, height: innerHeight };
+    const p = pictureInElement(r.width, r.height);
+    return { left: r.left + p.left, top: r.top + p.top, width: p.width, height: p.height };
   }
   const uvToScreen = (u, v) => {
     const r = videoRect();
@@ -392,7 +405,8 @@
     bg.style.display = on ? "block" : "none";
     if (!on) return;
     // laid over the video inside the same parent, so it moves with the background's tilt shift
-    const r = { left: video.offsetLeft, top: video.offsetTop, width: video.offsetWidth, height: video.offsetHeight };
+    const p = pictureInElement(video.offsetWidth, video.offsetHeight);
+    const r = { left: video.offsetLeft + p.left, top: video.offsetTop + p.top, width: p.width, height: p.height };
     const dpr = Math.min(devicePixelRatio || 1, 2);
     Object.assign(bg.style, { left: r.left + "px", top: r.top + "px", width: r.width + "px", height: r.height + "px" });
     const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
@@ -532,6 +546,45 @@
   // The mouse as a small light: a soft pool around the pointer, bright while it moves and
   // fading out after a moment of stillness, so it can be raked across the metal.
   const cursorGlow = { level: 0, last: 0 };
+  // Phones: tilting the phone (gyroscope/accelerometer via deviceorientation) moves a soft
+  // light across the frame and shifts the viewing angle, so reflections and glints move.
+  // The first reading is "neutral", whatever angle the phone is held at; neutral drifts
+  // slowly towards the current angle so it settles if the phone is put down at a new angle.
+  // iPhones ask for permission, which needs a tap, so the first tap asks.
+  const motion = { active: false, gx: 0, gy: 0, x: 0, y: 0, base: null };
+  function onOrientation(e) {
+    if (e.beta === null || e.gamma === null) return;
+    const now = [e.gamma, e.beta];                 // left/right, front/back, degrees
+    if (!motion.base) motion.base = now.slice();
+    motion.base[0] += (now[0] - motion.base[0]) * 0.004;
+    motion.base[1] += (now[1] - motion.base[1]) * 0.004;
+    const clamp = v => Math.max(-1, Math.min(1, v));
+    motion.gx = clamp((now[0] - motion.base[0]) / 25);
+    motion.gy = clamp((now[1] - motion.base[1]) / 25);
+    motion.active = true;
+  }
+  if ("DeviceOrientationEvent" in window) {
+    if (typeof DeviceOrientationEvent.requestPermission === "function") {   // iOS
+      addEventListener("touchend", function ask() {
+        removeEventListener("touchend", ask);
+        DeviceOrientationEvent.requestPermission()
+          .then(r => { if (r === "granted") addEventListener("deviceorientation", onOrientation); })
+          .catch(() => {});
+      });
+    } else {
+      addEventListener("deviceorientation", onOrientation);
+    }
+  }
+  function motionLight() {
+    if (!settings.motion || !motion.active) return null;
+    motion.x += (motion.gx - motion.x) * 0.15;      // smooth out sensor jitter
+    motion.y += (motion.gy - motion.y) * 0.15;
+    const [ax, ay] = aimPoint();
+    const k = 0.95 * settings.strength;
+    return { pos: [ax + motion.x * innerWidth * 0.7, ay + motion.y * innerHeight * 0.45, 220],
+             col: [1.1 * k, 1.05 * k, 0.95 * k] };
+  }
+
   function cursorLight(time) {
     const dt = Math.min(0.1, Math.max(0, (time - cursorGlow.last) / 1000));
     cursorGlow.last = time;
@@ -829,7 +882,9 @@
       siteBg.style.transform = on ? `translate(${dx}px, ${dy}px) scale(${zoom.toFixed(4)})` : "";
     }
     // the viewer, seen from the card: the inverse of the card's rotation applied to (0, 0, 1)
-    const y = tilt.yaw * Math.PI / 180, x = tilt.pitch * Math.PI / 180;
+    const tiltYaw = tilt.yaw + (settings.motion && motion.active ? motion.x * 12 : 0);
+    const tiltPitch = tilt.pitch - (settings.motion && motion.active ? motion.y * 12 : 0);
+    const y = tiltYaw * Math.PI / 180, x = tiltPitch * Math.PI / 180;
     const v = [-Math.sin(y), Math.sin(x) * Math.cos(y), Math.cos(x) * Math.cos(y)];
     const len = Math.hypot(...v);
     gl.uniform3f(U.uView, v[0] / len, v[1] / len, v[2] / len);
@@ -863,7 +918,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     gl.uniform4fv(U.uGlint, settings.extreme ? [4.5, 0.5, 40, 30] : [2.5, 0.84, 160, 6]);
     gl.uniform1f(U.uGoldEdges, settings.goldEdges ? 1 : 0);
     gl.uniform1f(U.uTime, time);
-    const cur = cursorLight(time);
+    const cur = cursorLight(time) || motionLight();
     const ls = introLights(lights(time).slice(0, MAX_LIGHTS - (cur ? 1 : 0))).concat(cur ? [cur] : []);
     gl.uniform3fv(U.uAmbient, scene.ambient.map(c => c * settings.fill));
     gl.uniform3fv(U.uEnv, scene.env);
@@ -938,7 +993,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       range("Depth", "bump", 0, 6, 0.1) +
       range("Sparkle", "sparkle", 0, 10, 0.05) +
       `<div class="lit-toggles">${toggle("Extreme sparkle", "extreme")}${toggle("Gold edges", "goldEdges")}` +
-      `${toggle("Cursor light", "cursor")}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
+      `${toggle("Cursor light", "cursor")}${toggle("Phone tilt", "motion")}${toggle("Guides", "guides")}${toggle("WASD tilt", "tilt")}</div>` +
       select("Ring metal", settings.ring.metal, Object.keys(METALS), "ring.metal") +
       select("Ring stone", settings.ring.stone, Object.keys(STONES), "ring.stone") +
       select("Border metal", settings.border.metal, Object.keys(METALS), "border.metal") +

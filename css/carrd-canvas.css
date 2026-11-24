@@ -316,6 +316,7 @@
     }
 
     .--site-bg {
+        overflow: hidden;          /* the cover-scaled picture can be larger than the screen */
         background-attachment: scroll;
         height: var(--background-height);
         left: 0px;
@@ -330,8 +331,14 @@
         width: 100vw
     }
 
+    /* the background fills the screen at any size: scaled to cover and cropped, centred
+       across, anchored at the top (js/lit.js works out the same placement) */
     .bg-video {
-        min-width: 100%;
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: 50% 0%;
     }
 
     .--site-bg::before {
@@ -699,5 +706,39 @@
         html,
         .canvas-wrapper {
             font-size: max(7px, min(7.7pt, var(--fit-vh, 1.61vh)))
+        }
+    }
+
+    /* Phones: the card fills the screen edge to edge (border along the screen's edges),
+       at least the full height with its contents at the top, a lighter see-through
+       background, and text sized from the width (capped by the height so short phones
+       don't scroll). */
+    @media screen and (max-width:736px) {
+        html,
+        .canvas-wrapper {
+            font-size: max(9px, min(10.5pt, 3.6vw, 1.75vh))
+        }
+
+        .--site-wrapper {
+            justify-content: flex-start
+        }
+
+        .--site-main {
+            width: 100%
+        }
+
+        .--site-main>.--inner {
+            --padding-horizontal: 0px;
+            --padding-vertical: 0px;
+            width: 100%
+        }
+
+        .--container-component.--instance-container02 {
+            min-height: 100vh;
+            min-height: 100dvh;
+            background-color: rgba(56, 57, 71, 0.45);
+            border-radius: 0;
+            box-shadow: none;
+            align-items: flex-start      /* banner right under the top border, spare space below */
         }
     }
