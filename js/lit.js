@@ -1147,7 +1147,10 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
   // border's edge lines; A: coverage) at its laid-out size,
   // remade when that size, the fonts or the pixel ratio change:
   //   buttons:  an edge line just inside each link button's rounded outline;
-  //   title:    a line traced around the rune heading's glyphs, a hair away from them;
+  //   title:    a line traced right along the rune heading's glyphs. The glyphs themselves
+  //             are drawn from the same layout on a small canvas inside the heading (the
+  //             heading's own text turns transparent), so the line can't drift off them:
+  //             the browser's own text and a canvas copy of it differ by a pixel or two;
   //   subtitle: the subtitle's own glyphs (its text turns transparent, keeping its shadow).
   // Text is placed glyph by glyph from the browser's own layout (Range rects), so it
   // matches whatever font and fallback the page uses.
@@ -1166,7 +1169,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     const box = el.getBoundingClientRect(), out = [], range = document.createRange();
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
     for (let node; (node = walker.nextNode());) {
-      const text = node.textContent, font = fontOf(getComputedStyle(node.parentElement));
+      const cs = getComputedStyle(node.parentElement), text = node.textContent, font = fontOf(cs);
       measureCtx.font = font;
       for (let i = 0; i < text.length;) {
         const len = text.codePointAt(i) > 0xffff ? 2 : 1, ch = text.slice(i, i + len);
@@ -1177,7 +1180,8 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
             const m = measureCtx.measureText(ch);
             const asc = m.fontBoundingBoxAscent ?? m.actualBoundingBoxAscent;
             const desc = m.fontBoundingBoxDescent ?? m.actualBoundingBoxDescent;
-            out.push({ ch, font, x: r.left - box.left, y: r.top - box.top + (r.height - (asc + desc)) / 2 + asc });
+            out.push({ ch, font, color: cs.color,
+                       x: r.left - box.left, y: r.top - box.top + (r.height - (asc + desc)) / 2 + asc });
           }
         }
         i += len;
@@ -1208,24 +1212,35 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       c.stroke();
       soft = 0.35;
     } else {
+      // measured with the page's own text colours showing (they are hidden while lit)
+      const html = document.documentElement, hidden = html.classList.contains("lit-gold-title");
+      html.classList.remove("lit-gold-title");
       const gs = glyphs(d.el);
+      html.classList.toggle("lit-gold-title", hidden);
       if (!gs.length) return;
       const size = parseFloat(getComputedStyle(d.el).fontSize);
       if (d.kind === "outline") {           // a ring: a wide stroke minus the glyphs and a gap
-        const gap = Math.max(1, size * 0.03), lw = Math.max(1.4, size * 0.038);
-        const pass = (width, op) => {
-          c.globalCompositeOperation = op;
-          c.lineWidth = width;
-          for (const g of gs) {
-            c.font = g.font;
-            if (width) c.strokeText(g.ch, g.x, g.y); else c.fillText(g.ch, g.x, g.y);
-          }
-        };
-        pass(2 * (gap + lw), "source-over");
-        pass(2 * gap, "destination-out");
-        pass(0, "destination-out");
+        const lw = Math.max(1.4, size * 0.038);
+        c.lineWidth = 2 * lw;                           // a stroke centred on the edge,
+        for (const g of gs) { c.font = g.font; c.strokeText(g.ch, g.x, g.y); }
+        c.globalCompositeOperation = "destination-out";  // minus the glyph: outside half only
+        for (const g of gs) { c.font = g.font; c.fillText(g.ch, g.x, g.y); }
         c.globalCompositeOperation = "source-over";
         soft = lw * 0.18;
+        // the glyphs, in their own colours, on a canvas laid over the heading's text
+        if (!d.text) {
+          d.text = document.createElement("canvas");
+          d.text.setAttribute("aria-hidden", "true");
+          d.text.style.cssText = "position:absolute;pointer-events:none";
+          if (getComputedStyle(d.el).position === "static") d.el.style.position = "relative";
+          d.el.append(d.text);
+        }
+        const t = d.text, tc = t.getContext("2d");
+        t.width = cw; t.height = ch;
+        Object.assign(t.style, { left: -pad + "px", top: -pad + "px", width: w + 2 * pad + "px", height: h + 2 * pad + "px" });
+        tc.scale(dpr, dpr);
+        tc.translate(pad, pad);
+        for (const g of gs) { tc.font = g.font; tc.fillStyle = g.color; tc.fillText(g.ch, g.x, g.y); }
       } else {
         for (const g of gs) { c.font = g.font; c.fillText(g.ch, g.x, g.y); }
         soft = Math.max(0.4, size * 0.025);
@@ -1250,6 +1265,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
   }
   function drawDecals(dpr, scissor) {
     document.documentElement.classList.toggle("lit-gold-subtitle", settings.goldSubtitle);
+    document.documentElement.classList.toggle("lit-gold-title", settings.goldTitle);
     const fontsReady = !document.fonts || document.fonts.status === "loaded";
     let any = false;
     for (const d of decals) {
@@ -1390,6 +1406,8 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       html.lit { touch-action: manipulation }   /* quick taps don't double-tap zoom; pinch still works */
       html.lit .avatar-ring { visibility: hidden }
       html.lit.lit-gold-subtitle .--instance-text03 { color: transparent }
+      html.lit.lit-gold-title .--instance-text01, html.lit.lit-gold-title .--instance-text01 * { color: transparent !important }
+      html.lit:not(.lit-gold-title) .--instance-text01>canvas { display: none }
       html.lit .--site-main .--container-component.--instance-container02 { border-image: none !important }`;
     document.head.append(style);
     // Hidden unless the URL has the "panel" flag (/lit/#panel, ?lit&panel); L shows/hides it.
