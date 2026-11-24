@@ -1143,7 +1143,8 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
 
   // =====================================================================================
   // Gold decals: gold lit like the frame's metal, drawn from page elements. Each gets a
-  // mask made on a 2D canvas (R: height, a soft bevel; A: coverage) at its laid-out size,
+  // mask made on a 2D canvas (R: height, flat-topped with a narrow hard chamfer like the
+  // border's edge lines; A: coverage) at its laid-out size,
   // remade when that size, the fonts or the pixel ratio change:
   //   buttons:  an edge line just inside each link button's rounded outline;
   //   title:    a line traced around the rune heading's glyphs, a hair away from them;
@@ -1195,22 +1196,23 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     c.scale(dpr, dpr);
     c.translate(pad, pad);
     c.fillStyle = c.strokeStyle = "#fff";
-    c.lineJoin = "round";
+    c.lineJoin = "miter";
+    c.miterLimit = 3;
     let soft = 1;                                                 // bevel blur, CSS px
     if (d.kind === "button") {
       const r = Math.min(h / 2, parseFloat(getComputedStyle(d.el).borderTopLeftRadius) || h / 2);
-      const inset = 1.7;
-      c.lineWidth = 2.2;
+      const inset = 1.4;
+      c.lineWidth = 1.6;
       c.beginPath();
       c.roundRect(inset, inset, w - 2 * inset, h - 2 * inset, Math.max(0, r - inset));
       c.stroke();
-      soft = 0.9;
+      soft = 0.35;
     } else {
       const gs = glyphs(d.el);
       if (!gs.length) return;
       const size = parseFloat(getComputedStyle(d.el).fontSize);
       if (d.kind === "outline") {           // a ring: a wide stroke minus the glyphs and a gap
-        const gap = Math.max(1, size * 0.03), lw = Math.max(1.6, size * 0.045);
+        const gap = Math.max(1, size * 0.03), lw = Math.max(1.4, size * 0.038);
         const pass = (width, op) => {
           c.globalCompositeOperation = op;
           c.lineWidth = width;
@@ -1223,10 +1225,10 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
         pass(2 * gap, "destination-out");
         pass(0, "destination-out");
         c.globalCompositeOperation = "source-over";
-        soft = lw * 0.45;
+        soft = lw * 0.18;
       } else {
         for (const g of gs) { c.font = g.font; c.fillText(g.ch, g.x, g.y); }
-        soft = Math.max(0.8, size * 0.05);
+        soft = Math.max(0.4, size * 0.025);
       }
     }
     // R = the coverage blurred (a rounded bevel for the lighting), A = the coverage
@@ -1237,7 +1239,9 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
     b.drawImage(crisp, 0, 0);
     const out = c.getImageData(0, 0, cw, ch), R = b.getImageData(0, 0, cw, ch).data;
     const px = out.data;
-    for (let i = 0; i < px.length; i += 4) { px[i] = R[i + 3]; px[i + 1] = 0; px[i + 2] = 0; }
+    for (let i = 0; i < px.length; i += 4) {
+      px[i] = Math.min(255, R[i + 3] * 2.2); px[i + 1] = 0; px[i + 2] = 0;
+    }
     if (!d.tex) d.tex = newTexture(gl, null);
     gl.bindTexture(gl.TEXTURE_2D, d.tex);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
