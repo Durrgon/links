@@ -1,20 +1,53 @@
-// Easter egg: three quick clicks (or taps) on the profile picture make it vibrate in place;
-// three more stop it. The shake is css/main.css's .avatar-frame.buzz .avatar; it ignores reduced
-// motion on purpose (it only ever starts when asked for). js/router.js loads this on every
-// route.
+// Easter egg: three quick clicks (or taps) on the profile picture make it shake wildly in
+// place, bouncing in every direction with a hint of blur; three more stop it. The
+// gold circle round it doesn't move: the picture is scaled up a little and clipped to a
+// circle that is shifted back by the same amount it moves, so only what's inside the
+// circle jitters. Ignores reduced motion on purpose (it only ever starts when asked for).
+// js/router.js loads this on every route.
 (() => {
   "use strict";
+  const SCALE = 1.1;        // so the picture still covers the circle when shifted (also
+                            // sets how far it can jump: (SCALE - 1) x the radius)
   const start = () => {
     const frame = document.querySelector(".avatar-frame");
-    if (!frame) return;
-    let taps = [];
+    const pic = frame && frame.querySelector(".avatar");
+    if (!pic) return;
+    let on = false, last = 0, taps = [];
+
+    function shake(time) {
+      if (!on) {
+        Object.assign(pic.style, { transform: "", clipPath: "", filter: "", borderRadius: "" });
+        return;
+      }
+      if (time - last > 28) {                   // a new jolt every couple of frames
+        last = time;
+        const w = pic.offsetWidth, h = pic.offsetHeight;
+        const reach = (SCALE - 1) * Math.min(w, h) / 2 * 0.9;
+        const a = Math.random() * Math.PI * 2, d = reach * (0.35 + 0.65 * Math.random());
+        const dx = Math.cos(a) * d, dy = Math.sin(a) * d;
+        // the circle that stays put on screen, in the picture's own (moved, scaled) space
+        const r = Math.min(w, h) / 2 / SCALE;
+        const cx = w / 2 - dx / SCALE, cy = h / 2 - dy / SCALE;
+        Object.assign(pic.style, {
+          borderRadius: "0",
+          transform: `translate(${dx.toFixed(2)}px, ${dy.toFixed(2)}px) scale(${SCALE})`,
+          clipPath: `circle(${r.toFixed(2)}px at ${cx.toFixed(2)}px ${cy.toFixed(2)}px)`,
+          filter: `blur(${(Math.random() * 0.35).toFixed(2)}px)`,
+        });
+      }
+      requestAnimationFrame(shake);
+    }
+
     frame.addEventListener("pointerdown", e => {
       if (e.button > 0) return;
       e.preventDefault();                       // quick clicks would select text
       const now = performance.now();
       taps = taps.filter(t => now - t < 650);
       taps.push(now);
-      if (taps.length >= 3) { taps = []; frame.classList.toggle("buzz"); }
+      if (taps.length < 3) return;
+      taps = [];
+      on = !on;
+      requestAnimationFrame(shake);
     });
   };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);

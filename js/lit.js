@@ -1470,7 +1470,7 @@ Sun ${fmt(sunTimes.rise)}–${fmt(sunTimes.set)} · ${sunTimes.where}`;
       .lit-buttons a { color: #9ab4ff; margin-left: auto }
       html.lit { touch-action: manipulation }   /* quick taps don't double-tap zoom; pinch still works */
       html.lit .avatar-ring { visibility: hidden }
-      html.lit .avatar, html.lit .--instance-image01>.--frame { box-shadow: none }   /* drawn lit */
+      html.lit .avatar-frame::after, html.lit .--instance-image01>.--frame::after { display: none }   /* drawn lit */
       html.lit.lit-gold-subtitle .--instance-text03 { color: transparent }
       html.lit.lit-gold-title .--instance-text01, html.lit.lit-gold-title .--instance-text01 * { color: transparent !important }
       html.lit:not(.lit-gold-title) .--instance-text01>canvas { display: none }
