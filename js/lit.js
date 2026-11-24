@@ -625,12 +625,15 @@
   // iPhones ask for permission, which needs a tap, so the first tap asks.
   // Works like a joystick: the ball rests in the middle of the screen and the phone's tilt
   // away from "neutral" pushes it out (gx, gy: -1..1 across the screen, eased so it never
-  // quite reaches an edge, and never a corner). Neutral is the first reading and settles
-  // towards however the phone is being held over a few seconds, so the ball comes home.
+  // quite reaches an edge, and never a corner). Neutral is the first reading; it stays put
+  // while the phone is being moved, and snaps (a quick glide home) to how the phone is
+  // held once it has been still: set down (under 0.6° of movement for 1.2 s) or held and
+  // looked at (within 3.5°, hand jitter, for 2 s).
   // Tilt is measured from the direction of "up" in the phone's own frame, which stays
   // steady when the phone is held upright (left/right tilt alone jumps about there).
   const motion = { active: false, gx: 0, gy: 0, x: 0, y: 0, up: null, base: null,
-                   ball: null, last: 0 };
+                   ball: null, last: 0, anchor: null, steadyFor: 0, maxDev: 0, homing: 0 };
+  const STILL = [[0.6, 1.2], [3.5, 2.0]];   // [degrees of wobble, seconds]: set down, held
   // Debug (panel: "Show ball"): a dot where the ball is.
   // Solid ring = the edge of its pool of light, dashed ring = where it reaches full strength.
   const ballDot = document.createElement("div");
@@ -664,8 +667,22 @@
   }
   function updateJoystick(dt) {
     const u = motion.up, base = motion.base;
-    const settle = 1 - Math.exp(-dt / 4);           // neutral follows the phone over ~4 s
-    for (let k = 0; k < 3; k++) base[k] += (u[k] - base[k]) * settle;
+    // Stillness: how far "up" has wandered (degrees) since the current steady spell began;
+    // a bigger move than the loosest limit starts a new spell from here.
+    const devFrom = a => Math.hypot(u[0] - a[0], u[1] - a[1], u[2] - a[2]) * 180 / Math.PI;
+    if (!motion.anchor || devFrom(motion.anchor) > STILL[1][0]) {
+      motion.anchor = u.slice(); motion.steadyFor = 0; motion.maxDev = 0;
+    } else {
+      motion.steadyFor += dt;
+      motion.maxDev = Math.max(motion.maxDev, devFrom(motion.anchor));
+      if (!motion.homing && devFrom(base) > 0.5 &&
+          STILL.some(([deg, secs]) => motion.maxDev < deg && motion.steadyFor >= secs)) motion.homing = 0.6;
+    }
+    if (motion.homing > 0) {                        // snap neutral to here: ~0.2 s glide
+      motion.homing -= dt;
+      const k = 1 - Math.exp(-dt / 0.07);
+      for (let i = 0; i < 3; i++) base[i] += (u[i] - base[i]) * k;
+    }
     // tilt away from neutral, in the phone's frame: x towards its right edge, y towards
     // its bottom edge (downhill = where the ball goes); sin(Tilt range) = full deflection
     const full = Math.sin(settings.ballRange * Math.PI / 180);
@@ -1033,6 +1050,7 @@
         (settings.tilt ? ` · tilt ${tilt.yaw.toFixed(0)}°, ${tilt.pitch.toFixed(0)}°` : "") +
         (settings.motion ? (motion.active
           ? ` · phone ${motion.raw[0].toFixed(0)}°, ${motion.raw[1].toFixed(0)}°` +
+            ` · still ${motion.steadyFor.toFixed(1)} s ±${motion.maxDev.toFixed(1)}°` +
             (motion.ball ? ` · ball ${motion.ball.x.toFixed(0)}, ${motion.ball.y.toFixed(0)}` : "")
           : ` · phone tilt: no readings${motion.events ? "" : " (no events)"}`) : "") +
         (cam.status ? ` · ${cam.status}` : "") +
